@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contacto — Solo Empleos Guadalajara</title>
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/header.css">
+  <link rel="stylesheet" href="/shared/css/footer.css">
+  <link rel="stylesheet" href="/shared/css/contacto.css">
+</head>
+
+<body data-region="gdl">
+
+  <div id="header-placeholder"></div>
+
+  <main>
+    <section class="contacto-section">
+      <div class="contacto-container">
+        <form id="contacto-form" novalidate>
+          <div class="contacto-eyebrow">PUBLICIDAD<span class="eyebrow-dot"></span></div>
+          <h3 class="contacto-title">Contáctanos</h3>
+          <div class="form-group">
+            <label for="nombre">Tu nombre</label>
+            <input type="text" id="nombre" name="nombre" required autocomplete="name">
+            <span class="field-error" id="error-nombre"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="email">Tu correo electrónico</label>
+            <input type="email" id="email" name="email" required autocomplete="email">
+            <span class="field-error" id="error-email"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="asunto">Asunto</label>
+            <input type="text" id="asunto" name="asunto" required>
+            <span class="field-error" id="error-asunto"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="mensaje">Tu mensaje (opcional)</label>
+            <textarea id="mensaje" name="mensaje" rows="8"></textarea>
+          </div>
+
+          <button type="submit" id="btn-enviar">ENVIAR</button>
+
+          <div id="form-feedback" aria-live="polite"></div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div id="footer-placeholder"></div>
+
+  <script src="/shared/js/components.js"></script>
+  <script src="/shared/js/contacto.js"></script>
+</body>
+
+</html>
