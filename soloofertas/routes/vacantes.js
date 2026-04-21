@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const requireAuth = require('../middleware/auth');
 
-const ROOT = path.join(__dirname, '..');
+const ROOT = path.join(__dirname, '..', 'pages');
 
 module.exports = function (region) {
   const router = express.Router();

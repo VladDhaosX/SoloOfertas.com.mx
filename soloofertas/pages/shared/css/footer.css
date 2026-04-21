@@ -1,9 +1,9 @@
 #site-footer {
-  background-color: #0a0a0a;
-  border-top: 1px solid var(--color-border);
+  background-color: #1957c4;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   padding: 2rem 1rem 1rem;
   font-size: 0.85rem;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .footer-inner {
@@ -15,7 +15,7 @@
 }
 
 .footer-section h4 {
-  color: var(--color-text);
+  color: #ffffff;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 0.75rem;
@@ -31,12 +31,12 @@
 }
 
 .footer-section ul li a {
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.85);
   transition: color 0.2s;
 }
 
 .footer-section ul li a:hover {
-  color: var(--color-text);
+  color: #ffffff;
 }
 
 .footer-address p {
@@ -48,7 +48,7 @@
   max-width: var(--max-width);
   margin: 1.5rem auto 0;
   padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -57,18 +57,18 @@
 }
 
 .footer-back-link {
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 0.8rem;
   transition: color 0.2s;
 }
 
 .footer-back-link:hover {
-  color: var(--color-text);
+  color: #ffffff;
 }
 
 .footer-copyright {
   font-size: 0.8rem;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 #scroll-top-btn {

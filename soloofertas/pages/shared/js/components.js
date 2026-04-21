@@ -15,12 +15,18 @@
       el.classList.toggle('active', el.dataset.regionLink === region);
     });
 
-    root.querySelectorAll('[data-region-ofertas]').forEach(el => {
-      if (el.tagName === 'A') el.href = `https://soloofertas.com/${region}/`;
+    root.querySelectorAll('[data-region-empleos]').forEach(el => {
+      if (el.tagName === 'A') el.href = `https://soloempleos.com.mx/${region}/`;
     });
 
     const logoImg = root.querySelector('[data-logo]');
-    if (logoImg) logoImg.src = `/shared/img/logo-${region}.jpg`;
+    if (logoImg) logoImg.src = `/shared/img/logo-ofertas.png`;
+
+    const path = window.location.pathname;
+    const activePage = path.includes('/contacto') ? 'contacto' : 'inicio';
+    root.querySelectorAll('[data-page]').forEach(el => {
+      el.classList.toggle('active', el.dataset.page === activePage);
+    });
   }
 
   function initScrollTop() {
