@@ -60,6 +60,7 @@
         email: getVal('email').trim(),
         asunto: getVal('asunto').trim(),
         mensaje: getVal('mensaje').trim(),
+        region: (document.body.getAttribute('data-region') || '').toLowerCase(),
       };
 
       try {
