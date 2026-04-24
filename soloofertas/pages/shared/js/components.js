@@ -16,7 +16,7 @@
     });
 
     root.querySelectorAll('[data-region-empleos]').forEach(el => {
-      if (el.tagName === 'A') el.href = `https://soloempleos.com.mx/${region}/`;
+      if (el.tagName === 'A') el.href = `https://soloempleos.com.mx/`;
     });
 
     const logoImg = root.querySelector('[data-logo]');
