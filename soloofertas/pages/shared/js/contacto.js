@@ -58,6 +58,7 @@
       const payload = {
         nombre: getVal('nombre').trim(),
         email: getVal('email').trim(),
+        telefono: getVal('telefono').trim(),
         asunto: getVal('asunto').trim(),
         mensaje: getVal('mensaje').trim(),
         region: (document.body.getAttribute('data-region') || '').toLowerCase(),
