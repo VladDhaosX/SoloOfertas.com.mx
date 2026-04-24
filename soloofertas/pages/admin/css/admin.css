@@ -276,11 +276,27 @@ button[type="submit"]:disabled {
   border: 1px solid var(--border);
   border-radius: 3px;
   overflow: hidden;
+  cursor: grab;
+}
+
+.admin-vacante-item:active {
+  cursor: grabbing;
+}
+
+.admin-vacante-item.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.admin-vacante-item.drag-over {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .admin-vacante-item img {
   width: 100%;
   display: block;
+  transition: transform 0.3s ease;
 }
 
 .btn-delete-vacante {
@@ -302,10 +318,31 @@ button[type="submit"]:disabled {
   line-height: 1;
   opacity: 0.85;
   transition: opacity 0.2s;
+  z-index: 1;
 }
 
 .btn-delete-vacante:hover {
   opacity: 1;
+}
+
+.btn-rotate-vacante {
+  display: none;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 22px;
+  height: 22px;
+  background: #444;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  opacity: 0.85;
+  z-index: 1;
 }
 
 @media (max-width: 767px) {

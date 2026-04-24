@@ -32,12 +32,13 @@ function renderVacantes(region) {
   }
   const MIN_CELLS = 8;
   const esc = s => String(s).replace(/"/g, '&quot;');
-  const items = data.map(v => (
-    `<div class="vacante-item">` +
-      `<img src="${esc(v.url)}" alt="Vacante" loading="lazy" ` +
+  const items = data.map(v => {
+    const rot = v.rotation ? ` style="transform:rotate(${Number(v.rotation)}deg)"` : '';
+    return `<div class="vacante-item">` +
+      `<img src="${esc(v.url)}" alt="Vacante" loading="lazy"${rot} ` +
       `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">` +
-    `</div>`
-  )).join('');
+    `</div>`;
+  }).join('');
   const empty = data.length < MIN_CELLS
     ? '<div class="vacante-item vacante-empty"></div>'.repeat(MIN_CELLS - data.length)
     : '';

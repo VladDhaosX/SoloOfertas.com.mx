@@ -68,6 +68,17 @@ module.exports = function (region) {
     }
   });
 
+  router.put('/vacantes/reorder', requireAuth, (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids debe ser array' });
+    const lista = readVacantes();
+    const map = Object.fromEntries(lista.map(v => [v.id, v]));
+    const reordered = ids.map(id => map[id]).filter(Boolean);
+    const missing = lista.filter(v => !ids.includes(v.id));
+    writeVacantes([...reordered, ...missing]);
+    res.json({ ok: true });
+  });
+
   router.delete('/vacantes/:id', requireAuth, (req, res) => {
     const { id } = req.params;
     try {

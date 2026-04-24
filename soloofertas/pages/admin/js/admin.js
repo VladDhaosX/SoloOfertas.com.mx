@@ -142,16 +142,112 @@
       grid.innerHTML = '<p style="color:#aaa;font-size:.85rem">Sin vacantes</p>';
       return;
     }
-    grid.innerHTML = data.map(v => `
-      <div class="admin-vacante-item" data-id="${v.id}">
-        <img src="${v.url}" alt="Vacante" loading="lazy"
+    grid.innerHTML = data.map(v => {
+      const rot = Number(v.rotation) || 0;
+      const rotStyle = rot ? ` style="transform:rotate(${rot}deg)"` : '';
+      return `
+      <div class="admin-vacante-item" data-id="${v.id}" data-rotation="${rot}" draggable="true">
+        <img src="${v.url}" alt="Vacante" loading="lazy"${rotStyle}
              onerror="this.onerror=null;this.style.opacity='.3'">
+        <button class="btn-rotate-vacante" data-id="${v.id}" title="Rotar">&#8635;</button>
         <button class="btn-delete-vacante" data-id="${v.id}" title="Eliminar">&#10005;</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     grid.querySelectorAll('.btn-delete-vacante').forEach(btn => {
       btn.addEventListener('click', () => deleteVacante(btn.dataset.id));
+    });
+
+    initDragAndDrop(grid);
+  }
+
+  function saveOrder(grid) {
+    const ids = [...grid.querySelectorAll('.admin-vacante-item')].map(el => el.dataset.id);
+    apiRequest(`/soloofertas/${state.region}/vacantes/reorder`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+  }
+
+  function reorderItems(grid, src, target) {
+    const items = [...grid.querySelectorAll('.admin-vacante-item')];
+    const srcIdx = items.indexOf(src);
+    const dstIdx = items.indexOf(target);
+    if (srcIdx < dstIdx) target.after(src);
+    else target.before(src);
+    saveOrder(grid);
+  }
+
+  function initDragAndDrop(grid) {
+    let dragging = null;
+
+    // Desktop — HTML5 DnD
+    grid.querySelectorAll('.admin-vacante-item').forEach(item => {
+      item.addEventListener('dragstart', () => {
+        dragging = item;
+        item.classList.add('dragging');
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        grid.querySelectorAll('.admin-vacante-item').forEach(i => i.classList.remove('drag-over'));
+        dragging = null;
+      });
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (dragging && item !== dragging) {
+          grid.querySelectorAll('.admin-vacante-item').forEach(i => i.classList.remove('drag-over'));
+          item.classList.add('drag-over');
+        }
+      });
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (dragging && item !== dragging) {
+          item.classList.remove('drag-over');
+          reorderItems(grid, dragging, item);
+        }
+      });
+    });
+
+    // Mobile — touch events
+    grid.querySelectorAll('.admin-vacante-item').forEach(item => {
+      let clone = null;
+
+      item.addEventListener('touchstart', (e) => {
+        dragging = item;
+        item.classList.add('dragging');
+        const t = e.touches[0];
+        clone = item.cloneNode(true);
+        clone.style.cssText = `position:fixed;z-index:9999;opacity:0.75;pointer-events:none;width:${item.offsetWidth}px;left:${t.clientX - item.offsetWidth / 2}px;top:${t.clientY - item.offsetHeight / 2}px;`;
+        document.body.appendChild(clone);
+      }, { passive: true });
+
+      item.addEventListener('touchmove', (e) => {
+        if (!clone) return;
+        const t = e.touches[0];
+        clone.style.left = `${t.clientX - clone.offsetWidth / 2}px`;
+        clone.style.top = `${t.clientY - clone.offsetHeight / 2}px`;
+
+        clone.style.display = 'none';
+        const el = document.elementFromPoint(t.clientX, t.clientY);
+        clone.style.display = '';
+
+        const target = el && el.closest('.admin-vacante-item');
+        grid.querySelectorAll('.admin-vacante-item').forEach(i => i.classList.remove('drag-over'));
+        if (target && target !== dragging) target.classList.add('drag-over');
+      }, { passive: true });
+
+      item.addEventListener('touchend', (e) => {
+        if (clone) { clone.remove(); clone = null; }
+        item.classList.remove('dragging');
+        const t = e.changedTouches[0];
+        const el = document.elementFromPoint(t.clientX, t.clientY);
+        const target = el && el.closest('.admin-vacante-item');
+        grid.querySelectorAll('.admin-vacante-item').forEach(i => i.classList.remove('drag-over'));
+        if (target && target !== dragging) reorderItems(grid, dragging, target);
+        dragging = null;
+      });
     });
   }
 
