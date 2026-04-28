@@ -181,13 +181,17 @@
     initDragAndDrop(grid);
   }
 
-  function saveOrder(grid) {
+  async function saveOrder(grid) {
     const ids = [...grid.querySelectorAll('.admin-vacante-item')].map(el => el.dataset.id);
-    apiRequest(`/soloofertas/${state.region}/vacantes/reorder`, {
+    UI.setStatus('vacantes-status', 'loading', 'Guardando orden...');
+    const res = await apiRequest(`/soloofertas/${state.region}/vacantes/reorder`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
     });
+    if (!res) return;
+    if (res.ok) UI.setStatus('vacantes-status', 'ok', 'Orden guardado.');
+    else UI.setStatus('vacantes-status', 'error', 'Error al guardar orden');
   }
 
   function reorderItems(grid, src, target) {
@@ -196,76 +200,101 @@
     const dstIdx = items.indexOf(target);
     if (srcIdx < dstIdx) target.after(src);
     else target.before(src);
+    target.classList.remove('drag-over');
     saveOrder(grid);
   }
 
   function initDragAndDrop(grid) {
-    let dragging = null;
 
-    // Desktop — HTML5 DnD
+    // ── Desktop ──────────────────────────────────────
+    let dragSrc = null;
+
     grid.querySelectorAll('.admin-vacante-item').forEach(item => {
-      item.addEventListener('dragstart', () => {
-        dragging = item;
+      item.addEventListener('dragstart', (e) => {
+        dragSrc = item;
         item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
       });
       item.addEventListener('dragend', () => {
         item.classList.remove('dragging');
         grid.querySelectorAll('.admin-vacante-item').forEach(i => i.classList.remove('drag-over'));
-        dragging = null;
       });
       item.addEventListener('dragover', (e) => {
         e.preventDefault();
-        if (dragging && item !== dragging) {
+        e.dataTransfer.dropEffect = 'move';
+        if (item !== dragSrc) {
           grid.querySelectorAll('.admin-vacante-item').forEach(i => i.classList.remove('drag-over'));
           item.classList.add('drag-over');
         }
       });
       item.addEventListener('drop', (e) => {
         e.preventDefault();
-        if (dragging && item !== dragging) {
-          item.classList.remove('drag-over');
-          reorderItems(grid, dragging, item);
-        }
+        if (!dragSrc || dragSrc === item) return;
+        reorderItems(grid, dragSrc, item);
       });
     });
 
-    // Mobile — touch events
-    grid.querySelectorAll('.admin-vacante-item').forEach(item => {
-      let clone = null;
+    // ── Mobile (Touch) ───────────────────────────────
+    let touchSrc = null;
+    let touchClone = null;
+    let touchOffsetX = 0;
+    let touchOffsetY = 0;
 
+    function getItemAtPoint(x, y) {
+      if (touchClone) touchClone.style.display = 'none';
+      const el = document.elementFromPoint(x, y);
+      if (touchClone) touchClone.style.display = '';
+      return el && el.closest('.admin-vacante-item');
+    }
+
+    grid.querySelectorAll('.admin-vacante-item').forEach(item => {
       item.addEventListener('touchstart', (e) => {
-        dragging = item;
+        const touch = e.touches[0];
+        const rect = item.getBoundingClientRect();
+        touchSrc = item;
+        touchOffsetX = touch.clientX - rect.left;
+        touchOffsetY = touch.clientY - rect.top;
+
+        touchClone = item.cloneNode(true);
+        Object.assign(touchClone.style, {
+          position: 'fixed',
+          width: rect.width + 'px',
+          height: rect.height + 'px',
+          left: (touch.clientX - touchOffsetX) + 'px',
+          top: (touch.clientY - touchOffsetY) + 'px',
+          opacity: '0.75',
+          pointerEvents: 'none',
+          zIndex: '9999',
+          borderRadius: '3px',
+          transition: 'none',
+        });
+        document.body.appendChild(touchClone);
         item.classList.add('dragging');
-        const t = e.touches[0];
-        clone = item.cloneNode(true);
-        clone.style.cssText = `position:fixed;z-index:9999;opacity:0.75;pointer-events:none;width:${item.offsetWidth}px;left:${t.clientX - item.offsetWidth / 2}px;top:${t.clientY - item.offsetHeight / 2}px;`;
-        document.body.appendChild(clone);
       }, { passive: true });
 
       item.addEventListener('touchmove', (e) => {
-        if (!clone) return;
-        const t = e.touches[0];
-        clone.style.left = `${t.clientX - clone.offsetWidth / 2}px`;
-        clone.style.top = `${t.clientY - clone.offsetHeight / 2}px`;
+        if (!touchSrc || !touchClone) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        touchClone.style.left = (touch.clientX - touchOffsetX) + 'px';
+        touchClone.style.top  = (touch.clientY - touchOffsetY) + 'px';
 
-        clone.style.display = 'none';
-        const el = document.elementFromPoint(t.clientX, t.clientY);
-        clone.style.display = '';
-
-        const target = el && el.closest('.admin-vacante-item');
+        const target = getItemAtPoint(touch.clientX, touch.clientY);
         grid.querySelectorAll('.admin-vacante-item').forEach(i => i.classList.remove('drag-over'));
-        if (target && target !== dragging) target.classList.add('drag-over');
-      }, { passive: true });
+        if (target && target !== touchSrc) target.classList.add('drag-over');
+      }, { passive: false });
 
       item.addEventListener('touchend', (e) => {
-        if (clone) { clone.remove(); clone = null; }
-        item.classList.remove('dragging');
-        const t = e.changedTouches[0];
-        const el = document.elementFromPoint(t.clientX, t.clientY);
-        const target = el && el.closest('.admin-vacante-item');
+        if (!touchSrc || !touchClone) return;
+        const touch = e.changedTouches[0];
+        touchClone.remove();
+        touchClone = null;
+        touchSrc.classList.remove('dragging');
         grid.querySelectorAll('.admin-vacante-item').forEach(i => i.classList.remove('drag-over'));
-        if (target && target !== dragging) reorderItems(grid, dragging, target);
-        dragging = null;
+
+        const target = getItemAtPoint(touch.clientX, touch.clientY);
+        if (target && target !== touchSrc) reorderItems(grid, touchSrc, target);
+        touchSrc = null;
       });
     });
   }
