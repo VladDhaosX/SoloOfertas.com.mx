@@ -101,12 +101,15 @@ app.use('/soloofertas', (req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-// Region redirects — any unresolved /gdl* or /mty* goes to its index
-app.use('/gdl', (req, res) => res.redirect('/gdl/'));
-app.use('/mty', (req, res) => res.redirect('/mty/'));
+// Region redirects — any unresolved /gdl* or /mty* goes to its actual page
+app.use('/gdl', (req, res) => res.redirect('/gdl/inicio/'));
+app.use('/mty', (req, res) => res.redirect('/mty/inicio/'));
 
-// Catch-all — everything else back to homepage
-app.use((req, res) => res.redirect('/'));
+// Catch-all — everything else back to homepage (guard: skip if already at /)
+app.use((req, res) => {
+  if (req.path === '/') return res.status(404).end();
+  res.redirect('/');
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
