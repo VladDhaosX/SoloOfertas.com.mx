@@ -47,6 +47,36 @@ module.exports = function (region) {
     fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
   }
 
+  router.post('/vacantes/replace-all', requireAuth, upload.array('imagenes', 200), (req, res) => {
+    if (!req.files || !req.files.length) {
+      return res.status(400).json({ error: 'No se recibieron imágenes' });
+    }
+
+    try {
+      // Delete existing uploaded vacante files
+      const existing = readVacantes();
+      existing.forEach(v => {
+        const filename = path.basename(v.url);
+        const filepath = path.join(uploadDir, filename);
+        if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+      });
+
+      // Build new list from uploaded files (already sorted client-side)
+      const now = new Date().toISOString().slice(0, 10);
+      const lista = req.files.map((file, i) => {
+        const ts = (Date.now() + i).toString();
+        const url = `/${region}/uploads/vacantes/${file.filename}`;
+        return { id: ts, url, fecha: now };
+      });
+
+      writeVacantes(lista);
+      res.json({ total: lista.length });
+    } catch (err) {
+      console.error('vacantes replace-all error:', err);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  });
+
   router.post('/vacantes', requireAuth, upload.single('imagen'), (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No se recibió imagen' });
