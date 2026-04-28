@@ -101,6 +101,13 @@ app.use('/soloofertas', (req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
+// Region redirects — any unresolved /gdl* or /mty* goes to its index
+app.use('/gdl', (req, res) => res.redirect('/gdl/'));
+app.use('/mty', (req, res) => res.redirect('/mty/'));
+
+// Catch-all — everything else back to homepage
+app.use((req, res) => res.redirect('/'));
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Solo Ofertas API corriendo en puerto ${PORT}`);
