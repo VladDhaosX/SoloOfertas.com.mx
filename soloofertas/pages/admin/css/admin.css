@@ -325,6 +325,86 @@ button[type="submit"]:disabled {
   opacity: 1;
 }
 
+.vacante-menu {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+}
+
+.btn-menu-vacante {
+  width: 24px;
+  height: 24px;
+  background: rgba(17, 17, 17, 0.88);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+  padding-bottom: 5px;
+}
+
+.btn-menu-vacante:hover,
+.vacante-menu.is-open .btn-menu-vacante {
+  background: #222;
+  border-color: #777;
+}
+
+.vacante-menu-panel {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  min-width: 126px;
+  background: #181818;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+  display: none;
+  overflow: hidden;
+}
+
+.vacante-menu.is-open .vacante-menu-panel {
+  display: block;
+}
+
+.btn-phone-vacante {
+  width: 100%;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.btn-phone-vacante:hover {
+  background: #2a2a2a;
+}
+
+.vacante-phone-badge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  background: rgba(22, 163, 74, 0.92);
+  color: #fff;
+  border-radius: 3px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.2rem 0.3rem;
+  z-index: 1;
+}
+
 .btn-rotate-vacante {
   display: none;
   position: absolute;
@@ -374,6 +454,10 @@ button[type="submit"]:disabled {
   width: 90%;
 }
 
+.admin-modal-small {
+  max-width: 340px;
+}
+
 .admin-modal-msg {
   margin: 0 0 1.2rem;
   white-space: pre-line;
@@ -413,6 +497,26 @@ button[type="submit"]:disabled {
 
 .btn-modal-confirm:hover {
   background: #b91c1c;
+}
+
+.admin-phone-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin-bottom: 0.45rem;
+}
+
+.admin-phone-input {
+  width: 100%;
+  background: #111;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.65rem 0.75rem;
+  font-family: var(--font);
+  font-size: 0.95rem;
+  border-radius: 3px;
+  outline: none;
+  margin-bottom: 1rem;
 }
 
 @media (max-width: 767px) {

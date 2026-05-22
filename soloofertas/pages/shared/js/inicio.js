@@ -1,4 +1,28 @@
 (function () {
+  function escapeAttr(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function whatsappHref(telefono) {
+    let digits = String(telefono || '').replace(/\D/g, '');
+    if (digits.length === 10) digits = `52${digits}`;
+    return digits ? `https://wa.me/${digits}` : '';
+  }
+
+  function whatsappButton(telefono) {
+    const href = whatsappHref(telefono);
+    if (!href) return '';
+    return `
+      <a class="vacante-whatsapp" href="${escapeAttr(href)}" target="_blank" rel="noopener" aria-label="Contactanos por WhatsApp" data-tooltip="Contactanos">
+        <img src="/shared/img/whatsapp.svg" alt="" aria-hidden="true">
+      </a>
+    `;
+  }
+
   async function cargarVacantes() {
     const region = document.body.dataset.region || 'gdl';
     const grid = document.getElementById('vacantes-grid');
@@ -23,11 +47,14 @@
       const items = data.map(v => `
         <div class="vacante-item">
           <img
-            src="${v.url}"
+            src="${escapeAttr(v.url)}"
+            data-full-src="${escapeAttr(v.url)}"
             alt="Vacante"
             loading="lazy"
+            decoding="async"
             onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'"
           >
+          ${whatsappButton(v.telefono)}
         </div>
       `).join('');
       const empty = data.length < MIN_CELLS
@@ -49,13 +76,24 @@
     modal.innerHTML = `
       <button class="vacante-modal-close" aria-label="Cerrar">&times;</button>
       <img class="vacante-modal-img" alt="">
+      <a class="vacante-modal-whatsapp" href="#" target="_blank" rel="noopener" aria-label="Contactanos por WhatsApp" data-tooltip="Contactanos">
+        <img src="/shared/img/whatsapp.svg" alt="" aria-hidden="true">
+      </a>
     `;
     document.body.appendChild(modal);
 
     const modalImg = modal.querySelector('.vacante-modal-img');
+    const modalWhatsapp = modal.querySelector('.vacante-modal-whatsapp');
 
-    function open(src) {
+    function open(src, whatsappUrl) {
       modalImg.src = src;
+      if (whatsappUrl) {
+        modalWhatsapp.href = whatsappUrl;
+        modalWhatsapp.style.display = 'inline-flex';
+      } else {
+        modalWhatsapp.removeAttribute('href');
+        modalWhatsapp.style.display = 'none';
+      }
       modal.classList.add('is-open');
       document.body.style.overflow = 'hidden';
     }
@@ -66,9 +104,12 @@
     }
 
     grid.addEventListener('click', (e) => {
+      if (e.target.closest('.vacante-whatsapp')) return;
       const img = e.target.closest('.vacante-item img');
       if (!img) return;
-      open(img.currentSrc || img.src);
+      const item = img.closest('.vacante-item');
+      const whatsapp = item ? item.querySelector('.vacante-whatsapp') : null;
+      open(img.dataset.fullSrc || img.currentSrc || img.src, whatsapp ? whatsapp.href : '');
     });
 
     modal.addEventListener('click', (e) => {

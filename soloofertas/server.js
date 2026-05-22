@@ -31,12 +31,28 @@ function renderVacantes(region) {
     return '<p class="vacantes-empty">No hay vacantes disponibles</p>';
   }
   const MIN_CELLS = 8;
-  const esc = s => String(s).replace(/"/g, '&quot;');
+  const esc = s => String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const waHref = telefono => {
+    let digits = String(telefono || '').replace(/\D/g, '');
+    if (digits.length === 10) digits = `52${digits}`;
+    return digits ? `https://wa.me/${digits}` : '';
+  };
   const items = data.map(v => {
     const rot = v.rotation ? ` style="transform:rotate(${Number(v.rotation)}deg)"` : '';
+    const whatsappUrl = waHref(v.telefono);
+    const contact = whatsappUrl
+      ? `<a class="vacante-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener" aria-label="Contactanos por WhatsApp" data-tooltip="Contactanos">` +
+          `<img src="/shared/img/whatsapp.svg" alt="" aria-hidden="true">` +
+        `</a>`
+      : '';
     return `<div class="vacante-item">` +
-      `<img src="${esc(v.url)}" alt="Vacante" loading="lazy"${rot} ` +
+      `<img src="${esc(v.url)}" data-full-src="${esc(v.url)}" alt="Vacante" loading="lazy" decoding="async"${rot} ` +
       `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">` +
+      contact +
     `</div>`;
   }).join('');
   const empty = data.length < MIN_CELLS

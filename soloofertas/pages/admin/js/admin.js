@@ -97,7 +97,54 @@
         overlay.addEventListener('click', e => { if (e.target === overlay) done(false); });
       });
     },
+    phoneModal(currentPhone = '') {
+      return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'admin-modal-overlay';
+        overlay.innerHTML = `
+          <div class="admin-modal admin-modal-small">
+            <form class="admin-phone-form">
+              <label class="admin-phone-label" for="vacante-phone-input">Numero de telefono</label>
+              <input
+                id="vacante-phone-input"
+                class="admin-phone-input"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="Ej. 8123456789"
+                value="${escapeAttr(currentPhone)}"
+              >
+              <div class="admin-modal-actions">
+                <button type="button" class="btn-modal btn-modal-cancel">Cancelar</button>
+                <button type="submit" class="btn-modal btn-modal-confirm">Guardar</button>
+              </div>
+            </form>
+          </div>`;
+        document.body.appendChild(overlay);
+
+        const input = overlay.querySelector('.admin-phone-input');
+        const form = overlay.querySelector('.admin-phone-form');
+        const done = (v) => { overlay.remove(); resolve(v); };
+
+        input.focus();
+        input.select();
+        overlay.querySelector('.btn-modal-cancel').addEventListener('click', () => done(null));
+        overlay.addEventListener('click', e => { if (e.target === overlay) done(null); });
+        form.addEventListener('submit', e => {
+          e.preventDefault();
+          done(input.value.trim());
+        });
+      });
+    },
   };
+
+  function escapeAttr(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
 
   // ──────────────────────────
   // Portada
@@ -164,15 +211,42 @@
     grid.innerHTML = data.map(v => {
       const rot = Number(v.rotation) || 0;
       const rotStyle = rot ? ` style="transform:rotate(${rot}deg)"` : '';
+      const telefono = v.telefono || '';
       return `
-      <div class="admin-vacante-item" data-id="${v.id}" data-rotation="${rot}" draggable="true">
+      <div class="admin-vacante-item" data-id="${v.id}" data-rotation="${rot}" data-telefono="${escapeAttr(telefono)}" draggable="true">
         <img src="${v.url}" alt="Vacante" loading="lazy"${rotStyle}
              onerror="this.onerror=null;this.style.opacity='.3'">
+        <div class="vacante-menu">
+          <button class="btn-menu-vacante" data-id="${v.id}" type="button" title="Opciones" aria-label="Opciones">...</button>
+          <div class="vacante-menu-panel" role="menu">
+            <button class="btn-phone-vacante" data-id="${v.id}" type="button" role="menuitem">${telefono ? 'Editar numero' : 'Agregar numero'}</button>
+          </div>
+        </div>
+        ${telefono ? '<span class="vacante-phone-badge" title="Tiene telefono">TEL</span>' : ''}
         <button class="btn-rotate-vacante" data-id="${v.id}" title="Rotar">&#8635;</button>
         <button class="btn-delete-vacante" data-id="${v.id}" title="Eliminar">&#10005;</button>
       </div>
     `;
     }).join('');
+
+    grid.querySelectorAll('.btn-menu-vacante').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = btn.closest('.vacante-menu');
+        grid.querySelectorAll('.vacante-menu.is-open').forEach(openMenu => {
+          if (openMenu !== menu) openMenu.classList.remove('is-open');
+        });
+        menu.classList.toggle('is-open');
+      });
+    });
+
+    grid.querySelectorAll('.btn-phone-vacante').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        btn.closest('.vacante-menu').classList.remove('is-open');
+        editVacantePhone(btn.dataset.id);
+      });
+    });
 
     grid.querySelectorAll('.btn-delete-vacante').forEach(btn => {
       btn.addEventListener('click', () => deleteVacante(btn.dataset.id));
@@ -180,6 +254,11 @@
 
     initDragAndDrop(grid);
   }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.vacante-menu')) return;
+    document.querySelectorAll('.vacante-menu.is-open').forEach(menu => menu.classList.remove('is-open'));
+  });
 
   async function saveOrder(grid) {
     const ids = [...grid.querySelectorAll('.admin-vacante-item')].map(el => el.dataset.id);
@@ -359,6 +438,29 @@
       if (item) item.remove();
     } else {
       alert('Error al eliminar vacante');
+    }
+  }
+
+  async function editVacantePhone(id) {
+    const item = document.querySelector(`.admin-vacante-item[data-id="${id}"]`);
+    const currentPhone = item ? item.dataset.telefono : '';
+    const telefono = await UI.phoneModal(currentPhone);
+    if (telefono === null) return;
+
+    UI.setStatus('vacantes-status', 'loading', 'Guardando numero...');
+    const res = await apiRequest(`/soloofertas/${state.region}/vacantes/${id}/telefono`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ telefono }),
+    });
+    if (!res) return;
+
+    if (res.ok) {
+      UI.setStatus('vacantes-status', 'ok', telefono ? 'Numero guardado.' : 'Numero eliminado.');
+      await loadVacantes();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      UI.setStatus('vacantes-status', 'error', d.error || 'Error al guardar numero');
     }
   }
 

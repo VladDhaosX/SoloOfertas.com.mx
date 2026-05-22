@@ -66,7 +66,7 @@ module.exports = function (region) {
       const lista = req.files.map((file, i) => {
         const ts = (Date.now() + i).toString();
         const url = `/${region}/uploads/vacantes/${file.filename}`;
-        return { id: ts, url, fecha: now };
+        return { id: ts, url, fecha: now, rotation: 0, telefono: '' };
       });
 
       writeVacantes(lista);
@@ -88,7 +88,7 @@ module.exports = function (region) {
 
     try {
       const lista = readVacantes();
-      const item = { id: ts, url, fecha: now };
+      const item = { id: ts, url, fecha: now, rotation: 0, telefono: '' };
       lista.unshift(item);
       writeVacantes(lista);
       res.json({ id: ts, url });
@@ -107,6 +107,26 @@ module.exports = function (region) {
     const missing = lista.filter(v => !ids.includes(v.id));
     writeVacantes([...reordered, ...missing]);
     res.json({ ok: true });
+  });
+
+  router.put('/vacantes/:id/telefono', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const telefono = String(req.body.telefono || '').trim();
+    if (telefono.length > 30) {
+      return res.status(400).json({ error: 'El numero no debe exceder 30 caracteres' });
+    }
+
+    try {
+      const lista = readVacantes();
+      const item = lista.find(v => v.id === id);
+      if (!item) return res.status(404).json({ error: 'Vacante no encontrada' });
+      item.telefono = telefono;
+      writeVacantes(lista);
+      res.json({ ok: true, telefono });
+    } catch (err) {
+      console.error('vacantes telefono error:', err);
+      res.status(500).json({ error: 'Error interno' });
+    }
   });
 
   router.delete('/vacantes/:id', requireAuth, (req, res) => {
