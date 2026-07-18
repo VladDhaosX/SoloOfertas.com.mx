@@ -3,13 +3,12 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const requireAuth = require('../middleware/auth');
-
-const ROOT = path.join(__dirname, '..', 'pages');
+const { dataPath, uploadsPath } = require('../content-paths');
 
 module.exports = function (region) {
   const router = express.Router();
 
-  const uploadDir = path.join(ROOT, region, 'uploads', 'portadas');
+  const uploadDir = uploadsPath(region, 'portadas');
 
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -40,7 +39,7 @@ module.exports = function (region) {
 
     const ts = path.basename(req.file.filename, '.jpg');
     const url = `/${region}/uploads/portadas/${req.file.filename}`;
-    const jsonPath = path.join(ROOT, region, 'data', 'portada.json');
+    const jsonPath = dataPath(region, 'portada.json');
 
     try {
       fs.mkdirSync(path.dirname(jsonPath), { recursive: true });

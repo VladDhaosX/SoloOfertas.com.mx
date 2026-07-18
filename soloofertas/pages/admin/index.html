@@ -71,6 +71,22 @@
         <div id="vacantes-grid" class="admin-vacantes-grid"></div>
       </section>
 
+      <section class="admin-card" id="section-cupones" data-gdl-only>
+        <h2>Cupones GDL</h2>
+        <label class="upload-btn" for="input-cupones">
+          + Subir cupón(es)
+          <input type="file" id="input-cupones" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
+        </label>
+        <label class="upload-btn upload-btn-replace" for="input-cupones-carpeta">
+          ↻ Reemplazar todo (carpeta)
+          <input type="file" id="input-cupones-carpeta" accept="image/jpeg,image/png,image/webp" webkitdirectory style="display:none">
+        </label>
+        <div id="cupones-status" class="upload-status"></div>
+        <p id="cupones-count" class="cupones-count"></p>
+        <div id="cupones-grid" class="admin-vacantes-grid admin-cupones-grid"></div>
+        <p class="admin-drag-help">Arrastra los cupones para cambiar el orden.<br>Formatos: JPG, PNG o WebP · Proporción recomendada: 4:5 vertical.</p>
+      </section>
+
     </main>
   </div>
 

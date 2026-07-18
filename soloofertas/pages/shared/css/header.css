@@ -88,6 +88,17 @@
   opacity: 0.85;
 }
 
+.header-nav a.nav-cupones {
+  background: #f4b400;
+  color: #111;
+}
+
+.header-nav a.nav-cupones:hover,
+.header-nav a.nav-cupones.active {
+  background: #ffd24a;
+  color: #111;
+}
+
 @media (max-width: 767px) {
   .header-nav {
     flex-wrap: wrap;

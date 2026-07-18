@@ -3,14 +3,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const requireAuth = require('../middleware/auth');
-
-const ROOT = path.join(__dirname, '..', 'pages');
+const { dataPath, uploadsPath } = require('../content-paths');
 
 module.exports = function (region) {
   const router = express.Router();
 
-  const uploadDir = path.join(ROOT, region, 'uploads', 'vacantes');
-  const jsonPath = path.join(ROOT, region, 'data', 'vacantes.json');
+  const uploadDir = uploadsPath(region, 'vacantes');
+  const jsonPath = dataPath(region, 'vacantes.json');
 
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {

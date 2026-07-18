@@ -1,5 +1,6 @@
 node_modules/
 soloofertas/.env
+soloofertas/storage/
 *.log
 .DS_Store
 Thumbs.db

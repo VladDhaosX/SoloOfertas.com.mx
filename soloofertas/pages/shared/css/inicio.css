@@ -63,6 +63,7 @@ body.page-ready .hero-video {
   padding: 0 1rem;
 }
 
+.hero-overlay h1,
 .hero-overlay h2 {
   font-family: 'Roboto', Arial, sans-serif;
   font-size: 3rem;
@@ -176,7 +177,8 @@ body.page-ready .hero-video {
 }
 
 .vacante-whatsapp::after,
-.vacante-modal-whatsapp::after {
+.vacante-modal-whatsapp::after,
+.vacante-modal-download::after {
   content: attr(data-tooltip);
   position: absolute;
   left: 50%;
@@ -199,7 +201,9 @@ body.page-ready .hero-video {
 .vacante-whatsapp:hover::after,
 .vacante-whatsapp:focus-visible::after,
 .vacante-modal-whatsapp:hover::after,
-.vacante-modal-whatsapp:focus-visible::after {
+.vacante-modal-whatsapp:focus-visible::after,
+.vacante-modal-download:hover::after,
+.vacante-modal-download:focus-visible::after {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
@@ -213,6 +217,17 @@ body.page-ready .hero-video {
 
 .vacante-whatsapp:hover::after,
 .vacante-whatsapp:focus-visible::after {
+  transform: translateY(0);
+}
+
+.vacante-modal-download::after {
+  left: auto;
+  right: 0;
+  transform: translateY(3px);
+}
+
+.vacante-modal-download:hover::after,
+.vacante-modal-download:focus-visible::after {
   transform: translateY(0);
 }
 
@@ -295,6 +310,43 @@ body.page-ready .hero-video {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
+.vacante-modal-download {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  background: #1a73e8;
+  border: 1px solid #1557b0;
+  border-radius: 50%;
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.vacante-modal.is-cupones .vacante-modal-download {
+  display: inline-flex;
+}
+
+.vacante-modal-download:hover,
+.vacante-modal-download:focus-visible {
+  background: #1557b0;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.vacante-modal-download svg {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+}
+
 .vacante-modal-close {
   position: absolute;
   top: 1rem;
@@ -353,6 +405,101 @@ body.page-ready .hero-video {
   min-height: 0;
 }
 
+body[data-content="cupones"] .vacantes-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+body[data-content="cupones"] .vacante-item {
+  aspect-ratio: 4 / 5;
+  min-height: 0;
+  background: #fff;
+  border: 1px solid #c9c9c9;
+  border-radius: 3px;
+}
+
+body[data-content="cupones"] .vacante-item img {
+  object-fit: contain;
+}
+
+body[data-content="cupones"] .vacante-item:hover img {
+  filter: none;
+}
+
+.cuponera-cta-wrap {
+  display: flex;
+  justify-content: center;
+  margin: -0.25rem 0 1.75rem;
+}
+
+.cuponera-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 340px;
+  padding: 0.8rem 1.2rem;
+  background: #1a73e8;
+  border: 1px solid #1557b0;
+  border-radius: 6px;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(26, 115, 232, 0.22);
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cuponera-cta:hover,
+.cuponera-cta:focus-visible {
+  background: #1557b0;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(26, 115, 232, 0.3);
+}
+
+.cuponera-cta svg {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  fill: currentColor;
+}
+
+.cuponera-cta span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.cuponera-cta strong {
+  font-size: 0.95rem;
+}
+
+.cuponera-cta small {
+  margin-top: 0.15rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.76rem;
+}
+
+.cupones-destacados {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 2rem;
+}
+
+.cupon-destacado {
+  overflow: hidden;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+}
+
+.cupon-destacado img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+
 .vacantes-empty {
   grid-column: 1 / -1;
   text-align: center;
@@ -368,6 +515,10 @@ body.page-ready .hero-video {
   .hero {
     margin: 1.5rem 2rem 0;
   }
+
+  body[data-content="cupones"] .vacantes-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -375,10 +526,15 @@ body.page-ready .hero-video {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  body[data-content="cupones"] .vacantes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .vacantes-title {
     font-size: 2.25rem;
   }
 
+  .hero-overlay h1,
   .hero-overlay h2 {
     font-size: 2.25rem;
   }
@@ -398,6 +554,24 @@ body.page-ready .hero-video {
     grid-template-columns: 1fr;
   }
 
+  body[data-content="cupones"] .vacantes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cuponera-cta-wrap {
+    margin-bottom: 1.25rem;
+  }
+
+  .cuponera-cta {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .cupones-destacados {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
   .vacante-whatsapp {
     right: 10px;
     bottom: 10px;
@@ -405,7 +579,8 @@ body.page-ready .hero-video {
     height: 42px;
   }
 
-  .vacante-modal-whatsapp {
+  .vacante-modal-whatsapp,
+  .vacante-modal-download {
     right: 1rem;
     bottom: 1rem;
     width: 48px;

@@ -4,6 +4,10 @@
   padding: 0;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 :root {
   --bg: #0d0d0d;
   --card-bg: #1a1a1a;
@@ -433,6 +437,63 @@ button[type="submit"]:disabled {
 
 .upload-btn-replace:hover {
   background: #4a2020;
+}
+
+.cupones-count,
+.admin-drag-help {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.75rem;
+}
+
+.admin-cupon-item {
+  padding-bottom: 38px;
+}
+
+.admin-cupon-item > img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: contain;
+  background: #fff;
+}
+
+.cupon-drag-handle,
+.btn-rotate-cupon,
+.btn-delete-cupon {
+  position: absolute;
+  bottom: 7px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cupon-drag-handle {
+  left: 7px;
+  width: 28px;
+  color: var(--muted);
+  cursor: grab;
+}
+
+.btn-rotate-cupon,
+.btn-delete-cupon {
+  background: #252525;
+  cursor: pointer;
+  font-size: 0.9rem;
+  width: 28px;
+}
+
+.btn-rotate-cupon {
+  right: 41px;
+}
+
+.btn-delete-cupon {
+  right: 7px;
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 .admin-modal-overlay {

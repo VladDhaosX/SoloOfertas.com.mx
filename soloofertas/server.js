@@ -3,13 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { PAGES_DIR, REGIONS, dataPath, uploadsPath } = require('./content-paths');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-const PAGES_DIR = path.join(__dirname, 'pages');
 const HEADER_FRAGMENT = path.join(PAGES_DIR, 'shared', 'header.html');
 const FOOTER_FRAGMENT = path.join(PAGES_DIR, 'shared', 'footer.html');
 
@@ -24,7 +24,7 @@ function injectFragments(html) {
 }
 
 function renderVacantes(region) {
-  const file = path.join(PAGES_DIR, region, 'data', 'vacantes.json');
+  const file = dataPath(region, 'vacantes.json');
   let data;
   try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return ''; }
   if (!Array.isArray(data) || data.length === 0) {
@@ -66,8 +66,33 @@ function injectVacantes(html, region) {
   return html.replace('<!-- SSR:VACANTES -->', renderVacantes(region));
 }
 
+function renderCupones() {
+  let data;
+  try { data = JSON.parse(fs.readFileSync(dataPath('gdl', 'cupones.json'), 'utf8')); } catch (_) { return ''; }
+  if (!Array.isArray(data) || data.length === 0) {
+    return '<p class="vacantes-empty">No hay cupones disponibles</p>';
+  }
+  const esc = s => String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return data.map(item => {
+    const rot = item.rotation ? ` style="transform:rotate(${Number(item.rotation)}deg)"` : '';
+    return `<div class="vacante-item">` +
+      `<img src="${esc(item.url)}" data-full-src="${esc(item.url)}" alt="Cupón en Guadalajara" loading="lazy" decoding="async"${rot} ` +
+      `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">` +
+    `</div>`;
+  }).join('');
+}
+
+function injectCupones(html, region) {
+  if (region !== 'gdl') return html;
+  return html.replace('<!-- SSR:CUPONES -->', renderCupones());
+}
+
 function renderPortadaUrl(region) {
-  const file = path.join(PAGES_DIR, region, 'data', 'portada.json');
+  const file = dataPath(region, 'portada.json');
   try {
     const { url, version } = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (!url) return '/shared/img/placeholder.svg';
@@ -98,10 +123,16 @@ app.use((req, res, next) => {
   fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) return next();
     res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(injectPortadas(injectVacantes(injectFragments(html), region)));
+    res.send(injectPortadas(injectCupones(injectVacantes(injectFragments(html), region), region)));
   });
 });
 
+for (const region of REGIONS) {
+  app.use(`/${region}/data`, express.static(path.dirname(dataPath(region, 'placeholder.json'))));
+  app.use(`/${region}/uploads/vacantes`, express.static(uploadsPath(region, 'vacantes')));
+  app.use(`/${region}/uploads/portadas`, express.static(uploadsPath(region, 'portadas')));
+}
+app.use('/gdl/uploads/cupones', express.static(uploadsPath('gdl', 'cupones')));
 app.use(express.static(PAGES_DIR));
 
 // Routes
@@ -110,6 +141,7 @@ app.use('/soloofertas/gdl', require('./routes/portada')('gdl'));
 app.use('/soloofertas/mty', require('./routes/portada')('mty'));
 app.use('/soloofertas/gdl', require('./routes/vacantes')('gdl'));
 app.use('/soloofertas/mty', require('./routes/vacantes')('mty'));
+app.use('/soloofertas/gdl', require('./routes/cupones')('gdl'));
 app.use('/soloofertas/contacto', require('./routes/contacto'));
 
 // Fallback 404 for unknown soloofertas routes
