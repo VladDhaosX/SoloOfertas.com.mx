@@ -20,7 +20,7 @@ function buildHtml({ nombre, email, telefono, asunto, mensaje, fecha }) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nuevo mensaje — Solo Empleos</title>
+<title>Nuevo mensaje — Solo Ofertas</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f1f1;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f1f1;padding:24px 0;">
@@ -29,7 +29,7 @@ function buildHtml({ nombre, email, telefono, asunto, mensaje, fecha }) {
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
           <tr>
             <td style="background:#1a1a1a;padding:24px 32px;border-bottom:3px solid #16a34a;">
-              <h1 style="margin:0;font-size:20px;color:#ffffff;font-weight:600;letter-spacing:0.5px;">Solo Empleos</h1>
+              <h1 style="margin:0;font-size:20px;color:#ffffff;font-weight:600;letter-spacing:0.5px;">Solo Ofertas</h1>
               <p style="margin:4px 0 0;font-size:13px;color:#9ca3af;">Nuevo mensaje de contacto</p>
             </td>
           </tr>
@@ -69,7 +69,7 @@ function buildHtml({ nombre, email, telefono, asunto, mensaje, fecha }) {
           </tr>
           <tr>
             <td style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#6b7280;">Este mensaje se generó automáticamente desde el formulario de contacto de <strong style="color:#1a1a1a;">Solo Empleos</strong>.</p>
+              <p style="margin:0;font-size:12px;color:#6b7280;">Este mensaje se generó automáticamente desde el formulario de contacto de <strong style="color:#1a1a1a;">Solo Ofertas</strong>.</p>
               <p style="margin:4px 0 0;font-size:11px;color:#9ca3af;">No respondas a este correo — usa el botón "Responder" para contactar al remitente.</p>
             </td>
           </tr>
@@ -118,10 +118,10 @@ router.post('/', async (req, res) => {
   const telefonoVal = (telefono || '').trim();
 
   const mailOptions = {
-    from: `"Solo Empleos ${regionLabel}" <${process.env.SMTP_USER}>`,
+    from: `"Solo Ofertas ${regionLabel}" <${process.env.SMTP_USER}>`,
     replyTo: email.trim(),
     to: process.env.EMAIL_DESTINO,
-    subject: `[Solo Empleos ${regionLabel}] ${asunto.trim()}`,
+    subject: `[Solo Ofertas ${regionLabel}] ${asunto.trim()}`,
     text: [
       `Región: ${regionLabel}`,
       `Nombre: ${nombre.trim()}`,

@@ -118,7 +118,7 @@ module.exports = function (region) {
     try {
       const lista = readVacantes();
       const item = lista.find(v => v.id === id);
-      if (!item) return res.status(404).json({ error: 'Vacante no encontrada' });
+      if (!item) return res.status(404).json({ error: 'Oferta no encontrada' });
       item.telefono = telefono;
       writeVacantes(lista);
       res.json({ ok: true, telefono });
@@ -134,7 +134,7 @@ module.exports = function (region) {
       const lista = readVacantes();
       const item = lista.find(v => v.id === id);
       if (!item) {
-        return res.status(404).json({ error: 'Vacante no encontrada' });
+        return res.status(404).json({ error: 'Oferta no encontrada' });
       }
 
       const filtered = lista.filter(v => v.id !== id);

@@ -28,7 +28,7 @@ function renderVacantes(region) {
   let data;
   try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return ''; }
   if (!Array.isArray(data) || data.length === 0) {
-    return '<p class="vacantes-empty">No hay vacantes disponibles</p>';
+    return '<p class="vacantes-empty">No hay ofertas disponibles</p>';
   }
   const MIN_CELLS = 8;
   const esc = s => String(s || '')
@@ -50,7 +50,7 @@ function renderVacantes(region) {
         `</a>`
       : '';
     return `<div class="vacante-item">` +
-      `<img src="${esc(v.url)}" data-full-src="${esc(v.url)}" alt="Vacante" loading="lazy" decoding="async"${rot} ` +
+      `<img src="${esc(v.url)}" data-full-src="${esc(v.url)}" alt="Oferta" loading="lazy" decoding="async"${rot} ` +
       `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">` +
       contact +
     `</div>`;

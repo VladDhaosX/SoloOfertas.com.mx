@@ -41,7 +41,7 @@
       const data = await res.json();
 
       if (!Array.isArray(data) || data.length === 0) {
-        grid.innerHTML = `<p class="vacantes-empty">No hay ${type === 'cupones' ? 'cupones' : 'vacantes'} disponibles</p>`;
+        grid.innerHTML = `<p class="vacantes-empty">No hay ${type === 'cupones' ? 'cupones' : 'ofertas'} disponibles</p>`;
         return;
       }
 
@@ -51,7 +51,7 @@
           <img
             src="${escapeAttr(v.url)}"
             data-full-src="${escapeAttr(v.url)}"
-            alt="${escapeAttr(type === 'cupones' ? `Cupón en ${regionName}` : `Vacante en ${regionName}`)}"
+            alt="${escapeAttr(type === 'cupones' ? `Cupón en ${regionName}` : `Oferta en ${regionName}`)}"
             loading="lazy"
             decoding="async"
             onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'"
@@ -65,7 +65,7 @@
       grid.innerHTML = items + empty;
       requestAnimationFrame(() => grid.classList.add('is-ready'));
     } catch (_) {
-      grid.innerHTML = `<p class="vacantes-empty">No hay ${type === 'cupones' ? 'cupones' : 'vacantes'} disponibles</p>`;
+      grid.innerHTML = `<p class="vacantes-empty">No hay ${type === 'cupones' ? 'cupones' : 'ofertas'} disponibles</p>`;
     }
   }
 

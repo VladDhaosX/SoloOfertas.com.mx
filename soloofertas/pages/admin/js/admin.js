@@ -199,14 +199,14 @@
       const data = await res.json();
       renderVacantesGrid(data);
     } catch (_) {
-      grid.innerHTML = '<p style="color:#aaa;font-size:.85rem">Sin vacantes</p>';
+      grid.innerHTML = '<p style="color:#aaa;font-size:.85rem">Sin ofertas</p>';
     }
   }
 
   function renderVacantesGrid(data) {
     const grid = document.getElementById('vacantes-grid');
     if (!data.length) {
-      grid.innerHTML = '<p style="color:#aaa;font-size:.85rem">Sin vacantes</p>';
+      grid.innerHTML = '<p style="color:#aaa;font-size:.85rem">Sin ofertas</p>';
       return;
     }
     grid.innerHTML = data.map(v => {
@@ -215,7 +215,7 @@
       const telefono = v.telefono || '';
       return `
       <div class="admin-vacante-item" data-id="${v.id}" data-rotation="${rot}" data-telefono="${escapeAttr(telefono)}" draggable="true">
-        <img src="${v.url}" alt="Vacante" loading="lazy"${rotStyle}
+        <img src="${v.url}" alt="Oferta" loading="lazy"${rotStyle}
              onerror="this.onerror=null;this.style.opacity='.3'">
         <div class="vacante-menu">
           <button class="btn-menu-vacante" data-id="${v.id}" type="button" title="Opciones" aria-label="Opciones">...</button>
@@ -394,7 +394,7 @@
         return;
       }
     }
-    UI.setStatus('vacantes-status', 'ok', `${total} vacante(s) subida(s).`);
+    UI.setStatus('vacantes-status', 'ok', `${total} oferta(s) subida(s).`);
     await loadVacantes();
   }
 
@@ -412,7 +412,7 @@
       return a.name.localeCompare(b.name);
     });
 
-    if (!await UI.confirm(`¿Reemplazar todas las vacantes con ${images.length} imágenes?\nEsta acción elimina las vacantes actuales.`)) return;
+    if (!await UI.confirm(`¿Reemplazar todas las ofertas con ${images.length} imágenes?\nEsta acción elimina las ofertas actuales.`)) return;
 
     UI.setStatus('vacantes-status', 'loading', `Subiendo ${images.length} imagen(es)...`);
     const fd = new FormData();
@@ -423,7 +423,7 @@
 
     if (res.ok) {
       const d = await res.json();
-      UI.setStatus('vacantes-status', 'ok', `${d.total} vacante(s) reemplazadas.`);
+      UI.setStatus('vacantes-status', 'ok', `${d.total} oferta(s) reemplazadas.`);
       await loadVacantes();
     } else {
       const d = await res.json().catch(() => ({}));
@@ -432,14 +432,14 @@
   }
 
   async function deleteVacante(id) {
-    if (!confirm('¿Eliminar esta vacante?')) return;
+    if (!confirm('¿Eliminar esta oferta?')) return;
     const res = await apiRequest(`/soloofertas/${state.region}/vacantes/${id}`, { method: 'DELETE' });
     if (!res) return;
     if (res.ok) {
       const item = document.querySelector(`.admin-vacante-item[data-id="${id}"]`);
       if (item) item.remove();
     } else {
-      alert('Error al eliminar vacante');
+      alert('Error al eliminar oferta');
     }
   }
 
