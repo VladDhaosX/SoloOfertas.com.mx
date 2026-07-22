@@ -24,7 +24,7 @@
     });
 
     const logoImg = root.querySelector('[data-logo]');
-    if (logoImg) logoImg.src = `/shared/img/logo-ofertas.png`;
+    if (logoImg) logoImg.src = `/shared/img/logo-ofertas.png?v=20260722`;
 
     const path = window.location.pathname;
     const activePage = path.includes('/cupones') ? 'cupones' : path.includes('/contacto') ? 'contacto' : 'inicio';
