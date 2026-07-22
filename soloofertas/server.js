@@ -79,7 +79,7 @@ function renderCupones() {
     .replace(/>/g, '&gt;');
   return data.map(item => {
     const rot = item.rotation ? ` style="transform:rotate(${Number(item.rotation)}deg)"` : '';
-    return `<div class="vacante-item">` +
+    return `<div class="vacante-item" data-cupon>` +
       `<img src="${esc(item.url)}" data-full-src="${esc(item.url)}" alt="Cupón en Guadalajara" loading="lazy" decoding="async"${rot} ` +
       `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">` +
     `</div>`;

@@ -73,10 +73,10 @@
     const grid = document.getElementById('vacantes-grid');
     if (!grid) return;
     const gallery = document.querySelector('.vacantes-section') || grid;
-    const isCoupons = document.body.dataset.content === 'cupones';
+    const isCouponsPage = document.body.dataset.content === 'cupones';
 
     const modal = document.createElement('div');
-    modal.className = `vacante-modal${isCoupons ? ' is-cupones' : ''}`;
+    modal.className = 'vacante-modal';
     modal.innerHTML = `
       <button class="vacante-modal-close" aria-label="Cerrar">&times;</button>
       <img class="vacante-modal-img" alt="">
@@ -93,9 +93,11 @@
     const modalDownload = modal.querySelector('.vacante-modal-download');
     const modalWhatsapp = modal.querySelector('.vacante-modal-whatsapp');
 
-    function open(src, whatsappUrl) {
+    function open(src, whatsappUrl, isCoupon) {
       modalImg.src = src;
-      if (isCoupons) modalDownload.href = new URL(src, window.location.href).pathname;
+      modal.classList.toggle('is-cupones', isCoupon);
+      if (isCoupon) modalDownload.href = new URL(src, window.location.href).pathname;
+      else modalDownload.removeAttribute('href');
       if (whatsappUrl) {
         modalWhatsapp.href = whatsappUrl;
         modalWhatsapp.style.display = 'inline-flex';
@@ -118,7 +120,8 @@
       if (!img) return;
       const item = img.closest('.vacante-item');
       const whatsapp = item ? item.querySelector('.vacante-whatsapp') : null;
-      open(img.dataset.fullSrc || img.currentSrc || img.src, whatsapp ? whatsapp.href : '');
+      const isCoupon = isCouponsPage || Boolean(item && item.hasAttribute('data-cupon'));
+      open(img.dataset.fullSrc || img.currentSrc || img.src, whatsapp ? whatsapp.href : '', isCoupon);
     });
 
     modal.addEventListener('click', (e) => {

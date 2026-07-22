@@ -127,6 +127,19 @@ body.page-ready .hero-video {
   gap: 14px;
 }
 
+.vacantes-section-mixta {
+  padding-top: 1.5rem;
+}
+
+.vacantes-grid-mixta .vacante-item {
+  min-height: 0;
+  aspect-ratio: 3366 / 4134;
+}
+
+.vacantes-grid-mixta .vacante-item img {
+  object-fit: contain;
+}
+
 .vacante-item {
   position: relative;
   background: #1a1a1a;
