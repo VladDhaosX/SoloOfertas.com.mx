@@ -23,6 +23,57 @@
     `;
   }
 
+  function initHeroCarousel() {
+    const carousel = document.querySelector('[data-hero-carousel]');
+    if (!carousel) return;
+
+    const slides = Array.from(carousel.querySelectorAll('[data-hero-slide]'));
+    const controls = Array.from(document.querySelectorAll('[data-hero-index]'));
+    if (slides.length < 2) return;
+
+    let activeIndex = 0;
+
+    function showSlide(index) {
+      activeIndex = (index + slides.length) % slides.length;
+
+      slides.forEach((slide, slideIndex) => {
+        const isActive = slideIndex === activeIndex;
+        slide.classList.toggle('is-active', isActive);
+        slide.setAttribute('aria-hidden', String(!isActive));
+
+        if (!isActive) {
+          slide.pause();
+          slide.currentTime = 0;
+        }
+      });
+
+      controls.forEach((control, controlIndex) => {
+        const isActive = controlIndex === activeIndex;
+        control.classList.toggle('is-active', isActive);
+        control.setAttribute('aria-current', String(isActive));
+      });
+
+      const activeSlide = slides[activeIndex];
+      activeSlide.currentTime = 0;
+      const playback = activeSlide.play();
+      if (playback) playback.catch(() => {});
+    }
+
+    slides.forEach((slide, slideIndex) => {
+      slide.addEventListener('ended', () => {
+        if (slideIndex === activeIndex) showSlide(activeIndex + 1);
+      });
+    });
+
+    controls.forEach((control) => {
+      control.addEventListener('click', () => {
+        showSlide(Number(control.dataset.heroIndex));
+      });
+    });
+
+    showSlide(0);
+  }
+
   async function cargarVacantes() {
     const region = document.body.dataset.region || 'gdl';
     const type = document.body.dataset.content || 'vacantes';
@@ -134,6 +185,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    initHeroCarousel();
     cargarVacantes();
     initModal();
   });

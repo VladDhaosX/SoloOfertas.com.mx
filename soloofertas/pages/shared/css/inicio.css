@@ -15,19 +15,33 @@
   }
 }
 
+.hero-carousel {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
 .hero-video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  z-index: 0;
-  transform: translateY(-100%);
   opacity: 0;
+  visibility: hidden;
+  transition: opacity 600ms ease, visibility 0s linear 600ms;
 }
 
-body.page-ready .hero-video {
+body.page-ready .hero-carousel {
   animation: heroSlideDown 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.hero-video.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 @keyframes heroSlideDown {
@@ -42,10 +56,14 @@ body.page-ready .hero-video {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body.page-ready .hero-video {
+  body.page-ready .hero-carousel {
     animation: none;
     transform: none;
     opacity: 1;
+  }
+
+  .hero-video {
+    transition: none;
   }
 }
 
@@ -61,6 +79,52 @@ body.page-ready .hero-video {
   color: #fff;
   text-shadow: 0 2px 10px rgba(0,0,0,0.6);
   padding: 0 1rem;
+}
+
+.hero-carousel-controls {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  transform: translateX(-50%);
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(4px);
+}
+
+.hero-carousel-dot {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.hero-carousel-dot::after {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  content: '';
+  transition: width 180ms ease, background-color 180ms ease;
+}
+
+.hero-carousel-dot.is-active::after {
+  width: 1.35rem;
+  background: #fff;
+}
+
+.hero-carousel-dot:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -3px;
+  border-radius: 999px;
 }
 
 .hero-overlay h1,

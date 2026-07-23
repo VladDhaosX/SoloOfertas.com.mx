@@ -66,6 +66,21 @@ async function run() {
     assert(html.includes('id="site-header"'));
     assert(!html.includes('<!-- SSR:VACANTES -->'));
     assert(!html.includes('<!-- SSR:CUPONES -->'));
+    assert(html.includes('src="/shared/img/hero-destacado.mp4"'));
+    assert(html.indexOf('hero-destacado.mp4') < html.indexOf('hero-gdl.mp4'));
+    assert.equal((html.match(/data-hero-slide/g) || []).length, 2);
+
+    const mtyResponse = await fetch(`http://127.0.0.1:${port}/mty/inicio/`);
+    const mtyHtml = await mtyResponse.text();
+    assert(mtyHtml.indexOf('hero-destacado.mp4') < mtyHtml.indexOf('hero-mty.mp4'));
+    assert.equal((mtyHtml.match(/data-hero-slide/g) || []).length, 2);
+
+    const heroVideoResponse = await fetch(
+      `http://127.0.0.1:${port}/shared/img/hero-destacado.mp4`,
+      { method: 'HEAD' }
+    );
+    assert.equal(heroVideoResponse.status, 200);
+    assert.equal(heroVideoResponse.headers.get('content-type'), 'video/mp4');
 
     const healthResponse = await fetch(`http://127.0.0.1:${port}/health`);
     assert.equal(healthResponse.status, 200);
