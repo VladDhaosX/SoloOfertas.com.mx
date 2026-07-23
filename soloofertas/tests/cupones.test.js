@@ -9,6 +9,9 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soloofertas-cupones-'));
 process.env.CONTENT_DIR = tempDir;
 process.env.JWT_SECRET = 'cupones-test-secret';
 
+fs.mkdirSync(path.join(tempDir, 'gdl', 'data'), { recursive: true });
+fs.writeFileSync(path.join(tempDir, 'gdl', 'data', 'cupones.json'), '[]\n', 'utf8');
+
 const app = express();
 app.use(express.json());
 app.use('/soloofertas/gdl', require('../routes/cupones')('gdl'));

@@ -1,14 +1,43 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const fs = require('fs');
-const { PAGES_DIR, REGIONS, dataPath, uploadsPath } = require('./content-paths');
+const { PAGES_DIR, REGIONS, dataPath, uploadsPath, assertContentReady } = require('./content-paths');
+const { readJson, readJsonArray } = require('./content-store');
+
+assertContentReady();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+function validateContentHealth() {
+  for (const region of REGIONS) {
+    const portada = readJson(dataPath(region, 'portada.json'));
+    if (!portada || typeof portada.url !== 'string' || !portada.url) {
+      throw new TypeError(`portada.json invalido para ${region}`);
+    }
+    readJsonArray(dataPath(region, 'vacantes.json'));
+  }
+  readJsonArray(dataPath('gdl', 'cupones.json'));
+}
+
+app.get('/health', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    validateContentHealth();
+    res.json({
+      status: 'ok',
+      content: 'ready',
+      uptimeSeconds: Math.floor(process.uptime()),
+      release: process.env.DEPLOY_COMMIT || null,
+    });
+  } catch (_) {
+    res.status(503).json({ status: 'error', content: 'unavailable' });
+  }
+});
 
 const HEADER_FRAGMENT = path.join(PAGES_DIR, 'shared', 'header.html');
 const FOOTER_FRAGMENT = path.join(PAGES_DIR, 'shared', 'footer.html');
@@ -26,7 +55,12 @@ function injectFragments(html) {
 function renderVacantes(region) {
   const file = dataPath(region, 'vacantes.json');
   let data;
-  try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return ''; }
+  try {
+    data = readJsonArray(file);
+  } catch (err) {
+    console.error(`vacantes read error (${region}):`, err);
+    return '<p class="vacantes-empty">Contenido temporalmente no disponible</p>';
+  }
   if (!Array.isArray(data) || data.length === 0) {
     return '<p class="vacantes-empty">No hay ofertas disponibles</p>';
   }
@@ -68,7 +102,12 @@ function injectVacantes(html, region) {
 
 function renderCupones() {
   let data;
-  try { data = JSON.parse(fs.readFileSync(dataPath('gdl', 'cupones.json'), 'utf8')); } catch (_) { return ''; }
+  try {
+    data = readJsonArray(dataPath('gdl', 'cupones.json'));
+  } catch (err) {
+    console.error('cupones read error (gdl):', err);
+    return '<p class="vacantes-empty">Contenido temporalmente no disponible</p>';
+  }
   if (!Array.isArray(data) || data.length === 0) {
     return '<p class="vacantes-empty">No hay cupones disponibles</p>';
   }
@@ -94,7 +133,7 @@ function injectCupones(html, region) {
 function renderPortadaUrl(region) {
   const file = dataPath(region, 'portada.json');
   try {
-    const { url, version } = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const { url, version } = readJson(file);
     if (!url) return '/shared/img/placeholder.svg';
     return `${url}?v=${version || Date.now()}`;
   } catch (_) {
@@ -160,6 +199,31 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Solo Ofertas API corriendo en puerto ${PORT}`);
 });
+
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} recibido; cerrando servidor...`);
+
+  const timeout = setTimeout(() => {
+    console.error('Cierre forzado despues de 10 segundos');
+    process.exit(1);
+  }, 10000);
+  timeout.unref();
+
+  server.close(err => {
+    clearTimeout(timeout);
+    if (err) {
+      console.error('Error al cerrar servidor:', err);
+      process.exit(1);
+    }
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
