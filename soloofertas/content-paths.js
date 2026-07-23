@@ -36,9 +36,9 @@ if (isSameOrInside(PAGES_DIR, CONTENT_DIR)) {
   CONTENT_DIR = STORAGE_DIR;
 }
 
-if (process.env.NODE_ENV === 'production' && isSameOrInside(path.dirname(APP_ROOT), CONTENT_DIR)) {
+if (process.env.NODE_ENV === 'production' && isSameOrInside(APP_ROOT, CONTENT_DIR)) {
   contentConfigurationError = new Error(
-    'CONTENT_DIR debe estar fuera del checkout cuando NODE_ENV=production.'
+    'CONTENT_DIR debe estar fuera de la raiz desplegada cuando NODE_ENV=production.'
   );
   CONTENT_DIR = STORAGE_DIR;
 }

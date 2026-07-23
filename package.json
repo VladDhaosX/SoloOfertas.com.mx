@@ -9,7 +9,7 @@
     "postinstall": "npm run content:init",
     "content:init": "node soloofertas/scripts/init-content.js",
     "test:content": "node soloofertas/tests/content-store.test.js",
-    "test": "npm run test:content && node soloofertas/tests/cupones.test.js && node soloofertas/tests/server-smoke.test.js"
+    "test": "node soloofertas/tests/content-paths.test.js && npm run test:content && node soloofertas/tests/cupones.test.js && node soloofertas/tests/server-smoke.test.js"
   },
   "engines": {
     "node": "22.x"

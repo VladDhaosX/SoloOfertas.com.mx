@@ -9,7 +9,7 @@
     "postinstall": "npm run content:init",
     "content:init": "node scripts/init-content.js",
     "test:content": "node tests/content-store.test.js",
-    "test": "npm run test:content && node tests/cupones.test.js && node tests/server-smoke.test.js"
+    "test": "node tests/content-paths.test.js && npm run test:content && node tests/cupones.test.js && node tests/server-smoke.test.js"
   },
   "engines": {
     "node": "22.x"
