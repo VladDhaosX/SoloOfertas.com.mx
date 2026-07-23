@@ -48,7 +48,7 @@ No guardar secretos en GitHub ni en archivos del repositorio.
 
 ## Persistencia
 
-`CONTENT_DIR` debe apuntar a un directorio escribible que Hostinger no reemplace durante cada build. El directorio tiene que estar fuera del checkout desplegado (`.../nodejs`) y fuera de `public_html`.
+`CONTENT_DIR` debe apuntar a un directorio escribible que Hostinger no reemplace durante cada build. El directorio tiene que estar fuera de la raiz desplegada `soloofertas` y fuera de `public_html`; puede ser un directorio hermano administrado por la misma cuenta de hosting.
 
 Antes del primer despliegue:
 
