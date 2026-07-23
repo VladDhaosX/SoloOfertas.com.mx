@@ -14,13 +14,22 @@
   <div id="header-placeholder"></div>
 
   <main>
-    <section class="hero">
-      <video class="hero-video" autoplay muted loop playsinline poster="">
-        <source src="/shared/img/hero-mty.mp4" type="video/mp4">
-      </video>
+    <section class="hero" aria-label="Videos destacados" aria-roledescription="carrusel">
+      <div class="hero-carousel" data-hero-carousel>
+        <video class="hero-video is-active" autoplay muted playsinline preload="auto" data-hero-slide>
+          <source src="/shared/img/hero-destacado.mp4" type="video/mp4">
+        </video>
+        <video class="hero-video" muted playsinline preload="metadata" data-hero-slide>
+          <source src="/shared/img/hero-mty.mp4" type="video/mp4">
+        </video>
+      </div>
       <div class="hero-overlay">
         <h2>Las Mejores Ofertas</h2>
         <p>Promociones, anuncios y campañas cerca de ti</p>
+      </div>
+      <div class="hero-carousel-controls" aria-label="Seleccionar video">
+        <button class="hero-carousel-dot is-active" type="button" data-hero-index="0" aria-label="Mostrar video 1 de 2" aria-current="true"></button>
+        <button class="hero-carousel-dot" type="button" data-hero-index="1" aria-label="Mostrar video 2 de 2" aria-current="false"></button>
       </div>
     </section>
 
