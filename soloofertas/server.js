@@ -6,7 +6,13 @@ const fs = require('fs');
 const { PAGES_DIR, REGIONS, dataPath, uploadsPath, assertContentReady } = require('./content-paths');
 const { readJson, readJsonArray } = require('./content-store');
 
-assertContentReady();
+try {
+  assertContentReady();
+} catch (err) {
+  // Mantiene el proceso disponible para diagnostico y recuperacion. /health
+  // continuara devolviendo 503 hasta que el volumen persistente este listo.
+  console.error('Contenido no disponible al iniciar:', err.message);
+}
 
 const app = express();
 
@@ -34,7 +40,8 @@ app.get('/health', (req, res) => {
       uptimeSeconds: Math.floor(process.uptime()),
       release: process.env.DEPLOY_COMMIT || null,
     });
-  } catch (_) {
+  } catch (err) {
+    console.error('Health check de contenido fallido:', err.message);
     res.status(503).json({ status: 'error', content: 'unavailable' });
   }
 });
