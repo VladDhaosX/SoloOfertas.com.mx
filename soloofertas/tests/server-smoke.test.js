@@ -84,8 +84,6 @@ async function run() {
     await exited;
     child = null;
 
-    const incompleteDir = path.join(tempDir, 'incomplete');
-    fs.mkdirSync(incompleteDir, { recursive: true });
     const recoveryPort = await reservePort();
     const recoveryStderr = [];
     child = spawn(process.execPath, [path.join(APP_ROOT, 'server.js')], {
@@ -93,7 +91,7 @@ async function run() {
       env: {
         ...process.env,
         NODE_ENV: 'production',
-        CONTENT_DIR: incompleteDir,
+        CONTENT_DIR: '',
         PORT: String(recoveryPort),
       },
       stdio: ['ignore', 'ignore', 'pipe'],

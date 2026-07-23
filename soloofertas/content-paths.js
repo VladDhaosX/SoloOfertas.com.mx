@@ -10,6 +10,7 @@ const REQUIRED_DATA_FILES = {
   mty: ['portada.json', 'vacantes.json'],
 };
 const configuredContentDir = String(process.env.CONTENT_DIR || '').trim();
+let contentConfigurationError = null;
 
 function isSameOrInside(parent, candidate) {
   const relative = path.relative(path.resolve(parent), path.resolve(candidate));
@@ -17,23 +18,29 @@ function isSameOrInside(parent, candidate) {
 }
 
 if (process.env.NODE_ENV === 'production' && !configuredContentDir) {
-  throw new Error(
+  contentConfigurationError = new Error(
     'CONTENT_DIR es obligatorio en produccion y debe apuntar a almacenamiento persistente fuera del checkout.'
   );
 }
 
 // El contenido editable nunca debe caer silenciosamente dentro de pages/.
 // Desarrollo usa storage/ y produccion exige una ruta persistente explicita.
-const CONTENT_DIR = configuredContentDir
+let CONTENT_DIR = configuredContentDir
   ? path.resolve(APP_ROOT, configuredContentDir)
   : STORAGE_DIR;
 
 if (isSameOrInside(PAGES_DIR, CONTENT_DIR)) {
-  throw new Error('CONTENT_DIR no puede apuntar a pages/ porque contiene el snapshot versionado de solo lectura.');
+  contentConfigurationError = new Error(
+    'CONTENT_DIR no puede apuntar a pages/ porque contiene el snapshot versionado de solo lectura.'
+  );
+  CONTENT_DIR = STORAGE_DIR;
 }
 
 if (process.env.NODE_ENV === 'production' && isSameOrInside(path.dirname(APP_ROOT), CONTENT_DIR)) {
-  throw new Error('CONTENT_DIR debe estar fuera del checkout cuando NODE_ENV=production.');
+  contentConfigurationError = new Error(
+    'CONTENT_DIR debe estar fuera del checkout cuando NODE_ENV=production.'
+  );
+  CONTENT_DIR = STORAGE_DIR;
 }
 
 function dataPath(region, filename) {
@@ -55,7 +62,12 @@ function missingContentFiles() {
   return missing;
 }
 
+function assertContentConfigured() {
+  if (contentConfigurationError) throw contentConfigurationError;
+}
+
 function assertContentReady() {
+  assertContentConfigured();
   const missing = missingContentFiles();
   if (!missing.length) return;
 
@@ -75,5 +87,6 @@ module.exports = {
   dataPath,
   uploadsPath,
   missingContentFiles,
+  assertContentConfigured,
   assertContentReady,
 };
