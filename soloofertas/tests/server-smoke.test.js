@@ -19,7 +19,7 @@ function reservePort() {
   });
 }
 
-async function waitForServer(url, child, stderr) {
+async function waitForServer(url, child, stderr, expectedStatus = 200) {
   const deadline = Date.now() + 8000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
@@ -27,7 +27,7 @@ async function waitForServer(url, child, stderr) {
     }
     try {
       const response = await fetch(url);
-      if (response.ok) return response;
+      if (response.status === expectedStatus) return response;
     } catch (_) {
       // El puerto todavia no esta listo.
     }
@@ -79,7 +79,37 @@ async function run() {
     assert.equal(unhealthyResponse.status, 503);
     assert.deepEqual(await unhealthyResponse.json(), { status: 'error', content: 'unavailable' });
 
-    console.log('Server smoke: inicio, contenido persistente, SSR y health check OK');
+    const exited = new Promise(resolve => child.once('exit', resolve));
+    child.kill();
+    await exited;
+    child = null;
+
+    const incompleteDir = path.join(tempDir, 'incomplete');
+    fs.mkdirSync(incompleteDir, { recursive: true });
+    const recoveryPort = await reservePort();
+    const recoveryStderr = [];
+    child = spawn(process.execPath, [path.join(APP_ROOT, 'server.js')], {
+      cwd: APP_ROOT,
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        CONTENT_DIR: incompleteDir,
+        PORT: String(recoveryPort),
+      },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    child.stderr.on('data', chunk => recoveryStderr.push(chunk.toString()));
+
+    const recoveryResponse = await waitForServer(
+      `http://127.0.0.1:${recoveryPort}/health`,
+      child,
+      recoveryStderr,
+      503
+    );
+    assert.deepEqual(await recoveryResponse.json(), { status: 'error', content: 'unavailable' });
+    assert(recoveryStderr.join('').includes('Contenido no disponible al iniciar'));
+
+    console.log('Server smoke: inicio, recuperacion, contenido persistente, SSR y health check OK');
   } finally {
     if (child && child.exitCode === null) {
       const exited = new Promise(resolve => child.once('exit', resolve));
