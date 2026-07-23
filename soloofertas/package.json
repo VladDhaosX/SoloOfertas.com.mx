@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "npm run content:init",
+    "postinstall": "npm run content:init",
     "content:init": "node scripts/init-content.js",
     "test:content": "node tests/content-store.test.js",
     "test": "npm run test:content && node tests/cupones.test.js && node tests/server-smoke.test.js"
