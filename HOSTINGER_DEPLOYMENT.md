@@ -22,12 +22,12 @@ Framework: Express.js
 Root directory: soloofertas
 Node.js: 22.x
 Package manager: npm
-Build command: npm run build
+Build configuration: Default
 Start command: npm start
 Entry file: server.js
 ```
 
-`npm run build` ejecuta el inicializador idempotente de contenido. Copia el snapshot solamente cuando faltan archivos y nunca sobrescribe contenido administrado existente.
+El preset Express de Hostinger no expone un comando de build personalizado. Durante la instalacion, `postinstall` ejecuta el inicializador idempotente de contenido. Copia el snapshot solamente cuando faltan archivos y nunca sobrescribe contenido administrado existente. `npm run build` permite ejecutar la misma comprobacion manualmente.
 
 ## Variables de entorno
 
