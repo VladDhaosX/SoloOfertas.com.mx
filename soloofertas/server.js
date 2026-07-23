@@ -3,7 +3,14 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
-const { PAGES_DIR, REGIONS, dataPath, uploadsPath, assertContentReady } = require('./content-paths');
+const {
+  PAGES_DIR,
+  REGIONS,
+  dataPath,
+  uploadsPath,
+  assertContentConfigured,
+  assertContentReady,
+} = require('./content-paths');
 const { readJson, readJsonArray } = require('./content-store');
 
 try {
@@ -19,7 +26,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use(['/soloofertas/gdl', '/soloofertas/mty'], (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  try {
+    assertContentConfigured();
+    next();
+  } catch (err) {
+    console.error('Escritura bloqueada por configuracion de contenido:', err.message);
+    res.status(503).json({ error: 'Almacenamiento persistente no disponible' });
+  }
+});
+
 function validateContentHealth() {
+  assertContentConfigured();
   for (const region of REGIONS) {
     const portada = readJson(dataPath(region, 'portada.json'));
     if (!portada || typeof portada.url !== 'string' || !portada.url) {
