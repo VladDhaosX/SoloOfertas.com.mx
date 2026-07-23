@@ -5,6 +5,7 @@ const fs = require('fs');
 const { randomUUID } = require('crypto');
 const requireAuth = require('../middleware/auth');
 const { dataPath, uploadsPath } = require('../content-paths');
+const { readJsonArray, writeJsonAtomic, archiveFile } = require('../content-store');
 
 module.exports = function (region) {
   const router = express.Router();
@@ -27,17 +28,25 @@ module.exports = function (region) {
   });
 
   function readCupones() {
-    try {
-      const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-      return Array.isArray(data) ? data : [];
-    } catch (_) {
-      return [];
-    }
+    return readJsonArray(jsonPath);
   }
 
   function writeCupones(data) {
-    fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
-    fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
+    writeJsonAtomic(jsonPath, data);
+  }
+
+  function archiveUploads(files) {
+    for (const file of files || []) {
+      try { archiveFile(file.path); } catch (err) {
+        console.error('cupones uploaded file archive error:', err);
+      }
+    }
+  }
+
+  function archivePublishedItem(item) {
+    try { archiveFile(path.join(uploadDir, path.basename(item.url))); } catch (err) {
+      console.error('cupones published file archive error:', err);
+    }
   }
 
   function newCupon(file) {
@@ -57,13 +66,11 @@ module.exports = function (region) {
       const existing = readCupones();
       const lista = files.map(newCupon);
       writeCupones(lista);
-      for (const item of existing) {
-        const filePath = path.join(uploadDir, path.basename(item.url));
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      }
+      existing.forEach(archivePublishedItem);
       res.json({ ok: true, total: lista.length });
     } catch (err) {
       console.error('cupones replace-all error:', err);
+      archiveUploads(files);
       res.status(500).json({ error: 'Error interno' });
     }
   });
@@ -78,6 +85,7 @@ module.exports = function (region) {
       res.json(item);
     } catch (err) {
       console.error('cupones write error:', err);
+      archiveUploads([req.file]);
       res.status(500).json({ error: 'Error interno' });
     }
   });
@@ -117,8 +125,7 @@ module.exports = function (region) {
       const item = lista.find(cupon => cupon.id === req.params.id);
       if (!item) return res.status(404).json({ error: 'Cupón no encontrado' });
       writeCupones(lista.filter(cupon => cupon.id !== req.params.id));
-      const filePath = path.join(uploadDir, path.basename(item.url));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      archivePublishedItem(item);
       res.json({ ok: true });
     } catch (err) {
       console.error('cupones delete error:', err);

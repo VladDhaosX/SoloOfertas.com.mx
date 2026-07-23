@@ -2,8 +2,10 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { randomUUID } = require('crypto');
 const requireAuth = require('../middleware/auth');
 const { dataPath, uploadsPath } = require('../content-paths');
+const { readJson, writeJsonAtomic, archiveFile } = require('../content-store');
 
 module.exports = function (region) {
   const router = express.Router();
@@ -16,8 +18,7 @@ module.exports = function (region) {
       cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-      const ts = Date.now().toString();
-      cb(null, `${ts}.jpg`);
+      cb(null, `${randomUUID()}.jpg`);
     },
   });
 
@@ -40,15 +41,27 @@ module.exports = function (region) {
     const ts = path.basename(req.file.filename, '.jpg');
     const url = `/${region}/uploads/portadas/${req.file.filename}`;
     const jsonPath = dataPath(region, 'portada.json');
+    let previous = null;
 
     try {
-      fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
-      fs.writeFileSync(jsonPath, JSON.stringify({ url, version: ts }, null, 2));
-      res.json({ url });
+      previous = readJson(jsonPath);
+      writeJsonAtomic(jsonPath, { url, version: ts });
     } catch (err) {
       console.error('portada write error:', err);
-      res.status(500).json({ error: 'Error interno' });
+      try { archiveFile(req.file.path); } catch (archiveErr) {
+        console.error('portada rollback archive error:', archiveErr);
+      }
+      return res.status(500).json({ error: 'Error interno' });
     }
+
+    if (previous && previous.url && previous.url !== url) {
+      try {
+        archiveFile(path.join(uploadDir, path.basename(previous.url)));
+      } catch (err) {
+        console.error('portada previous file archive error:', err);
+      }
+    }
+    res.json({ url });
   });
 
   return router;

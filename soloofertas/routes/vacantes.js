@@ -2,8 +2,10 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { randomUUID } = require('crypto');
 const requireAuth = require('../middleware/auth');
 const { dataPath, uploadsPath } = require('../content-paths');
+const { readJsonArray, writeJsonAtomic, archiveFile } = require('../content-store');
 
 module.exports = function (region) {
   const router = express.Router();
@@ -17,8 +19,7 @@ module.exports = function (region) {
       cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-      const ts = Date.now().toString();
-      cb(null, `${ts}.jpg`);
+      cb(null, `${randomUUID()}.jpg`);
     },
   });
 
@@ -34,16 +35,26 @@ module.exports = function (region) {
   });
 
   function readVacantes() {
-    try {
-      return JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-    } catch (_) {
-      return [];
-    }
+    return readJsonArray(jsonPath);
   }
 
   function writeVacantes(data) {
-    fs.mkdirSync(path.dirname(jsonPath), { recursive: true });
-    fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
+    writeJsonAtomic(jsonPath, data);
+  }
+
+  function archiveUploads(files) {
+    for (const file of files || []) {
+      try { archiveFile(file.path); } catch (err) {
+        console.error('vacantes uploaded file archive error:', err);
+      }
+    }
+  }
+
+  function archivePublishedItem(item) {
+    const filename = path.basename(item.url);
+    try { archiveFile(path.join(uploadDir, filename)); } catch (err) {
+      console.error('vacantes published file archive error:', err);
+    }
   }
 
   router.post('/vacantes/replace-all', requireAuth, upload.array('imagenes', 200), (req, res) => {
@@ -52,26 +63,21 @@ module.exports = function (region) {
     }
 
     try {
-      // Delete existing uploaded vacante files
       const existing = readVacantes();
-      existing.forEach(v => {
-        const filename = path.basename(v.url);
-        const filepath = path.join(uploadDir, filename);
-        if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-      });
-
-      // Build new list from uploaded files (already sorted client-side)
+      // Build new list from uploaded files (already sorted client-side).
       const now = new Date().toISOString().slice(0, 10);
-      const lista = req.files.map((file, i) => {
-        const ts = (Date.now() + i).toString();
+      const lista = req.files.map(file => {
+        const id = randomUUID();
         const url = `/${region}/uploads/vacantes/${file.filename}`;
-        return { id: ts, url, fecha: now, rotation: 0, telefono: '' };
+        return { id, url, fecha: now, rotation: 0, telefono: '' };
       });
 
       writeVacantes(lista);
+      existing.forEach(archivePublishedItem);
       res.json({ total: lista.length });
     } catch (err) {
       console.error('vacantes replace-all error:', err);
+      archiveUploads(req.files);
       res.status(500).json({ error: 'Error interno' });
     }
   });
@@ -81,18 +87,19 @@ module.exports = function (region) {
       return res.status(400).json({ error: 'No se recibió imagen' });
     }
 
-    const ts = Date.now().toString();
+    const id = randomUUID();
     const url = `/${region}/uploads/vacantes/${req.file.filename}`;
     const now = new Date().toISOString().slice(0, 10);
 
     try {
       const lista = readVacantes();
-      const item = { id: ts, url, fecha: now, rotation: 0, telefono: '' };
+      const item = { id, url, fecha: now, rotation: 0, telefono: '' };
       lista.unshift(item);
       writeVacantes(lista);
-      res.json({ id: ts, url });
+      res.json({ id, url });
     } catch (err) {
       console.error('vacantes write error:', err);
+      archiveUploads([req.file]);
       res.status(500).json({ error: 'Error interno' });
     }
   });
@@ -100,12 +107,17 @@ module.exports = function (region) {
   router.put('/vacantes/reorder', requireAuth, (req, res) => {
     const { ids } = req.body;
     if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids debe ser array' });
-    const lista = readVacantes();
-    const map = Object.fromEntries(lista.map(v => [v.id, v]));
-    const reordered = ids.map(id => map[id]).filter(Boolean);
-    const missing = lista.filter(v => !ids.includes(v.id));
-    writeVacantes([...reordered, ...missing]);
-    res.json({ ok: true });
+    try {
+      const lista = readVacantes();
+      const map = Object.fromEntries(lista.map(v => [v.id, v]));
+      const reordered = ids.map(id => map[id]).filter(Boolean);
+      const missing = lista.filter(v => !ids.includes(v.id));
+      writeVacantes([...reordered, ...missing]);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('vacantes reorder error:', err);
+      res.status(500).json({ error: 'Error interno' });
+    }
   });
 
   router.put('/vacantes/:id/telefono', requireAuth, (req, res) => {
@@ -139,13 +151,7 @@ module.exports = function (region) {
 
       const filtered = lista.filter(v => v.id !== id);
       writeVacantes(filtered);
-
-      // Delete file if it exists within the uploads dir
-      const filename = path.basename(item.url);
-      const filepath = path.join(uploadDir, filename);
-      if (fs.existsSync(filepath)) {
-        fs.unlinkSync(filepath);
-      }
+      archivePublishedItem(item);
 
       res.json({ ok: true });
     } catch (err) {
