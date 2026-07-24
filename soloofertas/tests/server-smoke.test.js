@@ -66,17 +66,32 @@ async function run() {
     assert(html.includes('id="site-header"'));
     assert(!html.includes('<!-- SSR:VACANTES -->'));
     assert(!html.includes('<!-- SSR:CUPONES -->'));
-    assert(html.includes('src="/shared/img/hero-destacado.mp4"'));
-    assert(html.indexOf('hero-destacado.mp4') < html.indexOf('hero-gdl.mp4'));
-    assert.equal((html.match(/data-hero-slide/g) || []).length, 2);
+    assert(!html.includes('data-cupon'));
+    assert(!html.includes('href="/gdl/cupones/"'));
+    assert(html.includes('src="/shared/img/hero-gdl.mp4"'));
+    assert(!html.includes('hero-destacado.mp4'));
+    assert(!html.includes('hero-carousel-controls'));
+    assert.equal((html.match(/class="hero-video/g) || []).length, 1);
 
     const mtyResponse = await fetch(`http://127.0.0.1:${port}/mty/inicio/`);
     const mtyHtml = await mtyResponse.text();
-    assert(mtyHtml.indexOf('hero-destacado.mp4') < mtyHtml.indexOf('hero-mty.mp4'));
-    assert.equal((mtyHtml.match(/data-hero-slide/g) || []).length, 2);
+    assert(mtyHtml.includes('src="/shared/img/hero-mty.mp4"'));
+    assert(!mtyHtml.includes('hero-destacado.mp4'));
+    assert(!mtyHtml.includes('hero-carousel-controls'));
+    assert.equal((mtyHtml.match(/class="hero-video/g) || []).length, 1);
+
+    const cuponesResponse = await fetch(`http://127.0.0.1:${port}/gdl/cupones/`, { redirect: 'manual' });
+    assert.equal(cuponesResponse.status, 302);
+    assert.equal(cuponesResponse.headers.get('location'), '/gdl/inicio/');
+    assert.equal((await fetch(`http://127.0.0.1:${port}/gdl/data/cupones.json`)).status, 404);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/gdl/uploads/cupones/001-adiestramiento-canino.png`)).status, 404);
+
+    const adminResponse = await fetch(`http://127.0.0.1:${port}/admin/`);
+    const adminHtml = await adminResponse.text();
+    assert(adminHtml.includes('id="section-cupones" hidden'));
 
     const heroVideoResponse = await fetch(
-      `http://127.0.0.1:${port}/shared/img/hero-destacado.mp4`,
+      `http://127.0.0.1:${port}/shared/img/hero-gdl.mp4`,
       { method: 'HEAD' }
     );
     assert.equal(heroVideoResponse.status, 200);

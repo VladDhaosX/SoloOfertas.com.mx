@@ -174,6 +174,10 @@ function injectPortadas(html) {
     .replace('__SSR_PORTADA_MTY__', renderPortadaUrl('mty'));
 }
 
+// ponytail: redireccion reversible; conserva contenido y API para reactivarlos sin migracion.
+app.use('/gdl/cupones', (_req, res) => res.redirect('/gdl/inicio/'));
+app.use(['/gdl/data/cupones.json', '/gdl/uploads/cupones'], (_req, res) => res.status(404).end());
+
 app.use((req, res, next) => {
   let urlPath = decodeURIComponent(req.path);
   if (urlPath.endsWith('/')) urlPath += 'index.html';
