@@ -96,18 +96,33 @@ async function run() {
     );
     assert.equal(heroVideoResponse.status, 200);
     assert.equal(heroVideoResponse.headers.get('content-type'), 'video/mp4');
+    assert.equal(
+      heroVideoResponse.headers.get('cache-control'),
+      'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
+    );
 
     const healthResponse = await fetch(`http://127.0.0.1:${port}/health`);
     assert.equal(healthResponse.status, 200);
-    assert.deepEqual(
-      Object.fromEntries(Object.entries(await healthResponse.json()).filter(([key]) => ['status', 'content'].includes(key))),
-      { status: 'ok', content: 'ready' }
-    );
+    const health = await healthResponse.json();
+    assert.equal(health.status, 'ok');
+    assert.equal(typeof health.instanceId, 'string');
+    assert.equal(healthResponse.headers.get('x-app-instance'), health.instanceId);
+
+    const liveResponse = await fetch(`http://127.0.0.1:${port}/health/live`);
+    assert.equal(liveResponse.status, 200);
+    assert.equal((await liveResponse.json()).instanceId, health.instanceId);
+
+    const readyResponse = await fetch(`http://127.0.0.1:${port}/health/ready`);
+    assert.equal(readyResponse.status, 200);
+    assert.equal((await readyResponse.json()).content, 'ready');
 
     fs.writeFileSync(path.join(tempDir, 'gdl', 'data', 'vacantes.json'), '{invalido', 'utf8');
-    const unhealthyResponse = await fetch(`http://127.0.0.1:${port}/health`);
+    const stillLiveResponse = await fetch(`http://127.0.0.1:${port}/health`);
+    assert.equal(stillLiveResponse.status, 200);
+
+    const unhealthyResponse = await fetch(`http://127.0.0.1:${port}/health/ready`);
     assert.equal(unhealthyResponse.status, 503);
-    assert.deepEqual(await unhealthyResponse.json(), { status: 'error', content: 'unavailable' });
+    assert.equal((await unhealthyResponse.json()).content, 'unavailable');
 
     const exited = new Promise(resolve => child.once('exit', resolve));
     child.kill();
@@ -131,13 +146,15 @@ async function run() {
     const recoveryResponse = await waitForServer(
       `http://127.0.0.1:${recoveryPort}/health`,
       child,
-      recoveryStderr,
-      503
+      recoveryStderr
     );
-    assert.deepEqual(await recoveryResponse.json(), { status: 'error', content: 'unavailable' });
+    assert.equal((await recoveryResponse.json()).status, 'ok');
+    const recoveryReadyResponse = await fetch(`http://127.0.0.1:${recoveryPort}/health/ready`);
+    assert.equal(recoveryReadyResponse.status, 503);
+    assert.equal((await recoveryReadyResponse.json()).content, 'unavailable');
     assert(recoveryStderr.join('').includes('Contenido no disponible al iniciar'));
 
-    console.log('Server smoke: inicio, recuperacion, contenido persistente, SSR y health check OK');
+    console.log('Server smoke: inicio, recuperacion, contenido persistente, SSR, cache y health checks OK');
   } finally {
     if (child && child.exitCode === null) {
       const exited = new Promise(resolve => child.once('exit', resolve));

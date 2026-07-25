@@ -3,6 +3,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
+const { randomUUID } = require('crypto');
 const {
   PAGES_DIR,
   REGIONS,
@@ -12,6 +13,51 @@ const {
   assertContentReady,
 } = require('./content-paths');
 const { readJson, readJsonArray } = require('./content-store');
+
+const INSTANCE_ID = randomUUID();
+const STARTED_AT = new Date().toISOString();
+
+function memoryUsageMb() {
+  const usage = process.memoryUsage();
+  return {
+    rss: Math.round(usage.rss / 1024 / 1024),
+    heapUsed: Math.round(usage.heapUsed / 1024 / 1024),
+  };
+}
+
+function lifecycle(event, details = {}, level = 'info') {
+  const record = {
+    type: 'lifecycle',
+    event,
+    timestamp: new Date().toISOString(),
+    instanceId: INSTANCE_ID,
+    pid: process.pid,
+    ppid: process.ppid,
+    uptimeSeconds: Math.floor(process.uptime()),
+    ...details,
+  };
+  const line = `${JSON.stringify(record)}\n`;
+
+  try {
+    fs.writeSync(level === 'error' ? 2 : 1, line);
+  } catch (_) {
+    // No dejamos que un problema del destino de logs oculte el evento original.
+  }
+}
+
+function errorDetails(error) {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack };
+  }
+  return { message: String(error) };
+}
+
+lifecycle('starting', {
+  node: process.version,
+  environment: process.env.NODE_ENV || 'development',
+  cwd: process.cwd(),
+  memoryMb: memoryUsageMb(),
+});
 
 try {
   assertContentReady();
@@ -25,6 +71,10 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  res.set('X-App-Instance', INSTANCE_ID);
+  next();
+});
 
 app.use(['/soloofertas/gdl', '/soloofertas/mty'], (req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
@@ -49,19 +99,39 @@ function validateContentHealth() {
   readJsonArray(dataPath('gdl', 'cupones.json'));
 }
 
-app.get('/health', (req, res) => {
+function livenessResponse() {
+  return {
+    status: 'ok',
+    instanceId: INSTANCE_ID,
+    startedAt: STARTED_AT,
+    uptimeSeconds: Math.floor(process.uptime()),
+    release: process.env.DEPLOY_COMMIT || null,
+  };
+}
+
+// Liveness solo confirma que el proceso puede responder. No debe devolver 503
+// por una dependencia recuperable o el supervisor puede provocar un reinicio.
+app.get(['/health', '/health/live'], (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(livenessResponse());
+});
+
+// Readiness comprueba que el contenido administrable esta listo para servir.
+app.get('/health/ready', (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
     validateContentHealth();
     res.json({
-      status: 'ok',
+      ...livenessResponse(),
       content: 'ready',
-      uptimeSeconds: Math.floor(process.uptime()),
-      release: process.env.DEPLOY_COMMIT || null,
     });
   } catch (err) {
     console.error('Health check de contenido fallido:', err.message);
-    res.status(503).json({ status: 'error', content: 'unavailable' });
+    res.status(503).json({
+      ...livenessResponse(),
+      status: 'unavailable',
+      content: 'unavailable',
+    });
   }
 });
 
@@ -202,6 +272,18 @@ for (const region of REGIONS) {
   app.use(`/${region}/uploads/portadas`, express.static(uploadsPath(region, 'portadas')));
 }
 app.use('/gdl/uploads/cupones', express.static(uploadsPath('gdl', 'cupones')));
+app.use('/shared/img', express.static(path.join(PAGES_DIR, 'shared', 'img'), {
+  maxAge: '1h',
+  setHeaders: (res, filePath) => {
+    if (path.extname(filePath).toLowerCase() === '.mp4') {
+      // El navegador conserva una hora y el CDN puede conservar un dia.
+      res.setHeader(
+        'Cache-Control',
+        'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
+      );
+    }
+  },
+}));
 app.use(express.static(PAGES_DIR));
 
 // Routes
@@ -228,9 +310,34 @@ app.use((req, res) => {
   res.redirect('/');
 });
 
+app.use((err, req, res, next) => {
+  lifecycle('request_error', {
+    method: req.method,
+    path: req.originalUrl,
+    error: errorDetails(err),
+  }, 'error');
+
+  if (res.headersSent) return next(err);
+  const requestedStatus = Number(err.status || err.statusCode);
+  const status = Number.isInteger(requestedStatus) && requestedStatus >= 400 && requestedStatus <= 599
+    ? requestedStatus
+    : 500;
+  res.status(status).json({ error: 'Error interno' });
+});
+
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   console.log(`Solo Ofertas API corriendo en puerto ${PORT}`);
+  lifecycle('listening', { port: Number(PORT), memoryMb: memoryUsageMb() });
+});
+
+server.on('error', err => {
+  lifecycle('server_error', { error: errorDetails(err), memoryMb: memoryUsageMb() }, 'error');
+  process.exit(1);
+});
+
+server.on('close', () => {
+  lifecycle('server_closed', { memoryMb: memoryUsageMb() });
 });
 
 let shuttingDown = false;
@@ -238,9 +345,11 @@ function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`${signal} recibido; cerrando servidor...`);
+  lifecycle('shutdown_started', { signal, memoryMb: memoryUsageMb() });
 
   const timeout = setTimeout(() => {
     console.error('Cierre forzado despues de 10 segundos');
+    lifecycle('shutdown_timeout', { signal, memoryMb: memoryUsageMb() }, 'error');
     process.exit(1);
   }, 10000);
   timeout.unref();
@@ -257,3 +366,26 @@ function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGHUP', () => shutdown('SIGHUP'));
+
+process.on('uncaughtException', (err, origin) => {
+  lifecycle('uncaught_exception', {
+    origin,
+    error: errorDetails(err),
+    memoryMb: memoryUsageMb(),
+  }, 'error');
+  process.exit(1);
+});
+
+process.on('unhandledRejection', reason => {
+  lifecycle('unhandled_rejection', { error: errorDetails(reason), memoryMb: memoryUsageMb() }, 'error');
+  process.exit(1);
+});
+
+process.on('beforeExit', code => {
+  lifecycle('before_exit', { code, memoryMb: memoryUsageMb() });
+});
+
+process.on('exit', code => {
+  lifecycle('exit', { code, memoryMb: memoryUsageMb() }, code === 0 ? 'info' : 'error');
+});
