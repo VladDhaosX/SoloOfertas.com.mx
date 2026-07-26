@@ -101,6 +101,33 @@ async function run() {
       'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
     );
 
+    const scannerPaths = [
+      '/wp-admin/install.php?step=1',
+      '/wp-content/plugins/example/file.php',
+      '/wp-includes/js/jquery.js',
+      '/wp-json/wp/v2/users',
+      '/wp-login.php',
+      '/xmlrpc.php',
+    ];
+    for (const scannerPath of scannerPaths) {
+      const scannerResponse = await fetch(`http://127.0.0.1:${port}${scannerPath}`, {
+        redirect: 'manual',
+      });
+      assert.equal(scannerResponse.status, 404);
+      assert.equal(scannerResponse.headers.get('location'), null);
+      assert.equal(
+        scannerResponse.headers.get('cache-control'),
+        'public, max-age=3600, s-maxage=604800, stale-while-revalidate=86400'
+      );
+      assert.equal(scannerResponse.headers.get('x-robots-tag'), 'noindex, nofollow');
+    }
+
+    const similarPathResponse = await fetch(`http://127.0.0.1:${port}/wp-administrator`, {
+      redirect: 'manual',
+    });
+    assert.equal(similarPathResponse.status, 302);
+    assert.equal(similarPathResponse.headers.get('location'), '/');
+
     const healthResponse = await fetch(`http://127.0.0.1:${port}/health`);
     assert.equal(healthResponse.status, 200);
     const health = await healthResponse.json();

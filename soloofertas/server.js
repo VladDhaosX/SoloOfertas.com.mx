@@ -16,6 +16,15 @@ const { readJson, readJsonArray } = require('./content-store');
 
 const INSTANCE_ID = randomUUID();
 const STARTED_AT = new Date().toISOString();
+const SCANNER_CACHE_CONTROL = 'public, max-age=3600, s-maxage=604800, stale-while-revalidate=86400';
+const SCANNER_PATH_PATTERNS = [
+  /^\/wp-admin(?:\/|$)/i,
+  /^\/wp-content(?:\/|$)/i,
+  /^\/wp-includes(?:\/|$)/i,
+  /^\/wp-json(?:\/|$)/i,
+  /^\/wp-login\.php$/i,
+  /^\/xmlrpc\.php$/i,
+];
 
 function memoryUsageMb() {
   const usage = process.memoryUsage();
@@ -69,12 +78,21 @@ try {
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
 app.use((req, res, next) => {
   res.set('X-App-Instance', INSTANCE_ID);
   next();
 });
+app.use((req, res, next) => {
+  if (!SCANNER_PATH_PATTERNS.some(pattern => pattern.test(req.path))) return next();
+
+  // El sitio no usa WordPress. Evita que escaneos automatizados lleguen al
+  // catch-all, que antes los redirigia a la portada y duplicaba el trabajo.
+  res.set('Cache-Control', SCANNER_CACHE_CONTROL);
+  res.set('X-Robots-Tag', 'noindex, nofollow');
+  res.status(404).end();
+});
+app.use(cors());
+app.use(express.json());
 
 app.use(['/soloofertas/gdl', '/soloofertas/mty'], (req, res, next) => {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
