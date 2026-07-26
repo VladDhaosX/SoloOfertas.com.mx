@@ -68,6 +68,8 @@ El endpoint `/health/ready` valida el almacenamiento persistente. Devuelve HTTP 
 
 Los archivos MP4 bajo `/shared/img` permiten cache de una hora en el navegador y un dia en el CDN. Esto evita que cada visita vuelva a transferir hasta decenas de MB desde el proceso Node.js.
 
+Las rutas tipicas de escaneo de WordPress (`/wp-admin`, `/wp-login.php`, `/wp-content`, `/wp-includes`, `/wp-json` y `/xmlrpc.php`) devuelven HTTP 404 sin redirigir a la portada. Como Solo Ofertas no usa WordPress, estas respuestas se pueden conservar una hora en el cliente y siete dias en el CDN para reducir solicitudes repetitivas al proceso Node.js.
+
 ## Diagnostico de reinicios
 
 Cada proceso escribe eventos JSON con `type: "lifecycle"` en los Runtime logs de Hostinger. Para confirmar un reinicio, comparar `instanceId`, `pid`, `event` y `timestamp`:
