@@ -2,8 +2,10 @@
   const state = {
     token: localStorage.getItem('se_token'),
     region: 'gdl',
+    section: 'portada',
     cupones: [],
   };
+  const FEATURES = Object.freeze({ coupons: false });
 
   // ──────────────────────────
   // Auth
@@ -147,6 +149,86 @@
       .replace(/>/g, '&gt;');
   }
 
+  function mediaUrl(region, type, url, preset = 'admin') {
+    const filename = String(url || '').split('/').pop();
+    if (!filename) return '';
+    return `/media/${region}/${type}/${encodeURIComponent(filename)}?preset=${encodeURIComponent(preset)}`;
+  }
+
+  function getFilenameFromDisposition(disposition) {
+    const match = /filename="?([^";]+)"?/i.exec(disposition || '');
+    return match ? match[1] : '';
+  }
+
+  function setBackupStatus(type, message) {
+    const el = document.getElementById('backup-status');
+    if (!el) return;
+    el.className = `backup-status ${type || ''}`;
+    el.textContent = message || '';
+  }
+
+  async function downloadBackup() {
+    const btn = document.getElementById('btn-backup');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Preparando...';
+    setBackupStatus('', 'Generando respaldo de datos e imagenes...');
+    try {
+      const res = await apiRequest('/soloofertas/backup');
+      if (!res) return;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'No se pudo generar el respaldo');
+      }
+      const blob = await res.blob();
+      const filename = getFilenameFromDisposition(res.headers.get('Content-Disposition')) ||
+        `soloofertas-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setBackupStatus('ok', 'Respaldo descargado.');
+    } catch (err) {
+      setBackupStatus('error', err.message || 'Error al descargar el respaldo');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Descargar respaldo';
+    }
+  }
+
+  async function restoreBackup(file) {
+    if (!file) return;
+    const confirmed = await UI.confirm(
+      'La restauracion reemplazara portada y ofertas de ambas ciudades. El contenido actual se conservara como snapshot. ¿Continuar?'
+    );
+    if (!confirmed) return;
+
+    const input = document.getElementById('input-backup');
+    const button = document.querySelector('.btn-restore');
+    if (button) button.classList.add('is-disabled');
+    setBackupStatus('', 'Validando y restaurando respaldo...');
+    try {
+      const form = new FormData();
+      form.append('backup', file);
+      const res = await apiRequest('/soloofertas/backup/restore', { method: 'POST', body: form });
+      if (!res) return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo restaurar el respaldo');
+      setBackupStatus('ok', `Restaurado: ${data.files} archivo(s). Snapshot: ${data.snapshot}.`);
+      await loadPortada();
+      await loadVacantes();
+    } catch (err) {
+      setBackupStatus('error', err.message || 'Error al restaurar el respaldo');
+    } finally {
+      if (button) button.classList.remove('is-disabled');
+      if (input) input.value = '';
+    }
+  }
+
   // ──────────────────────────
   // Portada
   // ──────────────────────────
@@ -157,7 +239,7 @@
       const data = await res.json();
       const img = document.getElementById('portada-preview');
       const ph = document.getElementById('portada-placeholder');
-      img.src = `${data.url}?v=${data.version}`;
+      img.src = mediaUrl(state.region, 'portadas', data.url, 'cover');
       img.style.display = 'block';
       img.onerror = () => {
         img.style.display = 'none';
@@ -215,16 +297,16 @@
       const telefono = v.telefono || '';
       return `
       <div class="admin-vacante-item" data-id="${v.id}" data-rotation="${rot}" data-telefono="${escapeAttr(telefono)}" draggable="true">
-        <img src="${v.url}" alt="Oferta" loading="lazy"${rotStyle}
+        <img src="${mediaUrl(state.region, 'vacantes', v.url)}" alt="Oferta" loading="lazy"${rotStyle}
              onerror="this.onerror=null;this.style.opacity='.3'">
         <div class="vacante-menu">
           <button class="btn-menu-vacante" data-id="${v.id}" type="button" title="Opciones" aria-label="Opciones">...</button>
           <div class="vacante-menu-panel" role="menu">
             <button class="btn-phone-vacante" data-id="${v.id}" type="button" role="menuitem">${telefono ? 'Editar numero' : 'Agregar numero'}</button>
+            <button class="btn-rotate-vacante" data-id="${v.id}" type="button" role="menuitem">Rotar 90&deg;</button>
           </div>
         </div>
         ${telefono ? '<span class="vacante-phone-badge" title="Tiene telefono">TEL</span>' : ''}
-        <button class="btn-rotate-vacante" data-id="${v.id}" title="Rotar">&#8635;</button>
         <button class="btn-delete-vacante" data-id="${v.id}" title="Eliminar">&#10005;</button>
       </div>
     `;
@@ -251,6 +333,14 @@
 
     grid.querySelectorAll('.btn-delete-vacante').forEach(btn => {
       btn.addEventListener('click', () => deleteVacante(btn.dataset.id));
+    });
+
+    grid.querySelectorAll('.btn-rotate-vacante').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        btn.closest('.vacante-menu')?.classList.remove('is-open');
+        rotateVacante(btn.dataset.id);
+      });
     });
 
     initDragAndDrop(grid);
@@ -432,7 +522,7 @@
   }
 
   async function deleteVacante(id) {
-    if (!confirm('¿Eliminar esta oferta?')) return;
+    if (!await UI.confirm('¿Eliminar esta oferta?')) return;
     const res = await apiRequest(`/soloofertas/${state.region}/vacantes/${id}`, { method: 'DELETE' });
     if (!res) return;
     if (res.ok) {
@@ -440,6 +530,22 @@
       if (item) item.remove();
     } else {
       alert('Error al eliminar oferta');
+    }
+  }
+
+  async function rotateVacante(id) {
+    const res = await apiRequest(`/soloofertas/${state.region}/vacantes/${id}/rotate`, { method: 'PUT' });
+    if (!res) return;
+    if (!res.ok) {
+      UI.setStatus('vacantes-status', 'error', 'Error al rotar la oferta');
+      return;
+    }
+    const { rotation } = await res.json();
+    const item = [...document.querySelectorAll('#vacantes-grid .admin-vacante-item')]
+      .find(element => element.dataset.id === id);
+    if (item) {
+      item.dataset.rotation = String(rotation);
+      item.querySelector('img').style.transform = `rotate(${rotation}deg)`;
     }
   }
 
@@ -470,8 +576,9 @@
   // Region switch
   // ──────────────────────────
   async function loadCupones() {
-    if (state.region !== 'gdl') return;
+    if (!FEATURES.coupons || state.region !== 'gdl') return;
     const grid = document.getElementById('cupones-grid');
+    if (!grid) return;
     grid.innerHTML = '<p style="color:#aaa;font-size:.85rem">Cargando...</p>';
     try {
       const res = await fetch('/gdl/data/cupones.json');
@@ -493,7 +600,7 @@
 
     grid.innerHTML = state.cupones.map(cupon => `
       <div class="admin-vacante-item admin-cupon-item" data-id="${escapeAttr(cupon.id)}" draggable="true">
-        <img src="${escapeAttr(cupon.url)}" alt="Cupón" loading="lazy"
+        <img src="${mediaUrl('gdl', 'cupones', cupon.url)}" alt="Cupón" loading="lazy"
              style="transform:rotate(${Number(cupon.rotation) || 0}deg)" onerror="this.onerror=null;this.style.opacity='.3'">
         <span class="cupon-drag-handle" title="Arrastrar" aria-hidden="true">⠿</span>
         <button class="btn-rotate-cupon" data-id="${escapeAttr(cupon.id)}" type="button" title="Rotar 90°">↻</button>
@@ -576,6 +683,17 @@
     else UI.setStatus('cupones-status', 'error', 'Error al eliminar cupón');
   }
 
+  function showAdminSection(section) {
+    if (!['portada', 'vacantes'].includes(section)) section = 'portada';
+    state.section = section;
+    document.querySelectorAll('[data-admin-section]').forEach(button => {
+      button.classList.toggle('active', button.dataset.adminSection === section);
+    });
+    document.querySelectorAll('[data-admin-section-panel]').forEach(panel => {
+      panel.hidden = panel.dataset.adminSectionPanel !== section;
+    });
+  }
+
   function setRegion(region) {
     state.region = region;
     document.querySelectorAll('.region-btn').forEach(btn => {
@@ -584,12 +702,13 @@
     UI.clearStatus('portada-status');
     UI.clearStatus('vacantes-status');
     UI.clearStatus('cupones-status');
-    document.querySelectorAll('[data-gdl-only]').forEach(el => {
-      el.hidden = region !== 'gdl';
+    document.querySelectorAll('[data-feature-coupons]').forEach(el => {
+      el.hidden = !FEATURES.coupons || region !== 'gdl';
     });
+    showAdminSection(state.section);
     loadPortada();
     loadVacantes();
-    if (region === 'gdl') loadCupones();
+    if (FEATURES.coupons && region === 'gdl') loadCupones();
   }
 
   // ──────────────────────────
@@ -600,7 +719,7 @@
       UI.showPanel();
       loadPortada();
       loadVacantes();
-      loadCupones();
+      if (FEATURES.coupons) loadCupones();
     } else {
       UI.showLogin();
     }
@@ -622,7 +741,7 @@
         UI.showPanel();
         loadPortada();
         loadVacantes();
-        loadCupones();
+        if (FEATURES.coupons) loadCupones();
       } catch (err) {
         errEl.textContent = err.message || 'Credenciales incorrectas';
       } finally {
@@ -637,9 +756,18 @@
       UI.showLogin();
     });
 
+    document.getElementById('btn-backup').addEventListener('click', downloadBackup);
+    document.getElementById('input-backup').addEventListener('change', event => {
+      restoreBackup(event.target.files[0]);
+    });
+
     // Region selector
     document.querySelectorAll('.region-btn').forEach(btn => {
       btn.addEventListener('click', () => setRegion(btn.dataset.region));
+    });
+
+    document.querySelectorAll('[data-admin-section]').forEach(btn => {
+      btn.addEventListener('click', () => showAdminSection(btn.dataset.adminSection));
     });
 
     // Portada upload
@@ -663,14 +791,16 @@
       e.target.value = '';
     });
 
-    document.getElementById('input-cupones').addEventListener('change', (e) => {
-      if (e.target.files.length) uploadCupones(e.target.files);
-      e.target.value = '';
-    });
+    if (FEATURES.coupons) {
+      document.getElementById('input-cupones').addEventListener('change', (e) => {
+        if (e.target.files.length) uploadCupones(e.target.files);
+        e.target.value = '';
+      });
 
-    document.getElementById('input-cupones-carpeta').addEventListener('change', (e) => {
-      if (e.target.files.length) replaceCarpetaCupones(e.target.files);
-      e.target.value = '';
-    });
+      document.getElementById('input-cupones-carpeta').addEventListener('change', (e) => {
+        if (e.target.files.length) replaceCarpetaCupones(e.target.files);
+        e.target.value = '';
+      });
+    }
   });
 })();

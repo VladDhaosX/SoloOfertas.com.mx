@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
   <title>Solo Ofertas — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260728">
 </head>
 <body>
 
@@ -37,13 +38,22 @@
         <button class="region-btn active" data-region="gdl">GDL</button>
         <button class="region-btn" data-region="mty">MTY</button>
       </div>
+      <button id="btn-backup" class="btn-backup" type="button">Descargar respaldo</button>
+      <label class="btn-restore" for="input-backup">Restaurar respaldo</label>
+      <input type="file" id="input-backup" accept=".zip,application/zip" style="display:none">
       <button id="btn-logout" class="btn-logout">Cerrar sesión</button>
+      <div id="backup-status" class="backup-status" aria-live="polite"></div>
     </header>
 
     <main class="admin-main">
 
+      <nav class="admin-section-tabs" aria-label="Secciones del administrador">
+        <button class="admin-section-tab active" type="button" data-admin-section="portada">Portada</button>
+        <button class="admin-section-tab" type="button" data-admin-section="vacantes">Ofertas</button>
+      </nav>
+
       <!-- Portada del día -->
-      <section class="admin-card" id="section-portada">
+      <section class="admin-card" id="section-portada" data-admin-section-panel="portada">
         <h2>Portada del día</h2>
         <div class="portada-preview-wrap">
           <img id="portada-preview" src="" alt="Portada actual" class="portada-img">
@@ -57,7 +67,7 @@
       </section>
 
       <!-- Ofertas -->
-      <section class="admin-card" id="section-vacantes">
+      <section class="admin-card" id="section-vacantes" data-admin-section-panel="vacantes" hidden>
         <h2>Ofertas</h2>
         <label class="upload-btn" for="input-vacantes">
           + Subir oferta(s)
@@ -71,7 +81,7 @@
         <div id="vacantes-grid" class="admin-vacantes-grid"></div>
       </section>
 
-      <section class="admin-card" id="section-cupones" hidden>
+      <section class="admin-card" id="section-cupones" data-feature-coupons hidden>
         <h2>Cupones GDL</h2>
         <label class="upload-btn" for="input-cupones">
           + Subir cupón(es)
@@ -90,6 +100,6 @@
     </main>
   </div>
 
-  <script src="/admin/js/admin.js"></script>
+  <script src="/admin/js/admin.js?v=20260728"></script>
 </body>
 </html>

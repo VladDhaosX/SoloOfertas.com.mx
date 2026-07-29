@@ -17,7 +17,7 @@ La inicializacion copia solamente archivos faltantes y no sobrescribe contenido 
 ## Produccion
 
 1. Configura `NODE_ENV=production`.
-2. Configura `CONTENT_DIR` con una ruta persistente. La aplicacion no inicia en produccion si falta esta variable.
+2. Configura `CONTENT_DIR` con una ruta persistente. Si falta, el proceso conserva `/health` para diagnostico pero `/health/ready` responde 503 y las escrituras quedan bloqueadas.
 3. Restaura ahi las carpetas `gdl/data`, `gdl/uploads`, `mty/data` y `mty/uploads` del respaldo actual, o ejecuta `npm run content:init` con `CONTENT_DIR` configurado para sembrar un volumen vacio.
 4. Verifica que el proceso tenga permisos de lectura, escritura y renombrado dentro de `CONTENT_DIR`.
 5. Usa una sola instancia de la aplicacion: el almacenamiento basado en archivos no coordina escrituras entre varias replicas.
@@ -39,3 +39,11 @@ CONTENT_DIR/.backups/files/
 ```
 
 Se retienen los ultimos 200 archivos por carpeta de contenido. Estas carpetas no se exponen como rutas publicas. Conviene incluir todo `CONTENT_DIR`, incluida `.backups`, en el respaldo externo del volumen.
+
+El administrador tambien puede descargar un ZIP de las carpetas regionales y restaurarlo. La restauracion se extrae y valida fuera de `CONTENT_DIR`; solamente despues se intercambian `gdl` y `mty`. La version anterior se conserva en:
+
+```text
+CONTENT_DIR/.backups/restores/
+```
+
+Se retienen los tres snapshots de restauracion mas recientes. Las carpetas `.cache` contienen WebP derivados, se excluyen del ZIP y se regeneran automaticamente.

@@ -29,9 +29,22 @@ body {
   background-color: #ffffff;
   color: #111111;
   line-height: 1.5;
+  overflow-x: hidden;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 main {

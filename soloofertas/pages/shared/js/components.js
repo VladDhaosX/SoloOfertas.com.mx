@@ -20,7 +20,10 @@
     });
 
     root.querySelectorAll('[data-region-empleos]').forEach(el => {
-      if (el.tagName === 'A') el.href = `https://soloempleos.com.mx/`;
+      if (el.tagName === 'A') {
+        el.href = `https://soloempleos.com.mx/${region}/inicio/`;
+        el.dataset.regionEmpleos = region;
+      }
     });
 
     const logoImg = root.querySelector('[data-logo]');

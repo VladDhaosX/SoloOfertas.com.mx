@@ -34,6 +34,9 @@ El preset Express de Hostinger no expone un comando de build personalizado. Dura
 ```text
 NODE_ENV=production
 CONTENT_DIR=/ruta/persistente/fuera-del-directorio-nodejs
+PUBLIC_ORIGIN=https://soloofertas.com
+BACKUP_MAX_ZIP_MB=100
+BACKUP_MAX_EXPANDED_MB=500
 ADMIN_USER=...
 ADMIN_PASSWORD=...
 JWT_SECRET=...
@@ -90,3 +93,7 @@ Si una publicacion falla:
 4. Hostinger publicara de nuevo la ultima version estable sin modificar `CONTENT_DIR`.
 
 Los respaldos de contenido se encuentran dentro de `CONTENT_DIR/.backups/` y deben incluirse en la politica externa de backups del hosting.
+
+El administrador permite descargar un ZIP con los JSON e imagenes de ambas regiones. Las carpetas `.cache` no se incluyen. La restauracion valida primero el ZIP en un directorio temporal, comprueba JSON e imagenes y despues intercambia las regiones; el contenido anterior se conserva en `CONTENT_DIR/.backups/restores/`. Se retienen los tres snapshots de restauracion mas recientes.
+
+Las versiones WebP se generan bajo las carpetas `.cache` de cada tipo de carga usando presets cerrados. Sharp trabaja con una sola tarea nativa concurrente para limitar picos de memoria. Estas versiones son derivadas y pueden regenerarse, por lo que no necesitan respaldo externo.

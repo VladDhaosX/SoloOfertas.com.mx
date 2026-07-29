@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="__DESCRIPTION__">
+  <link rel="canonical" href="__CANONICAL_URL__">
+  <meta property="og:locale" content="es_MX">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Solo Ofertas">
+  <meta property="og:title" content="__TITLE__">
+  <meta property="og:description" content="__DESCRIPTION__">
+  <meta property="og:url" content="__CANONICAL_URL__">
+  <meta property="og:image" content="__IMAGE_ABSOLUTE_URL__">
+  <meta property="og:image:alt" content="Oferta en __REGION_NAME__">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="__TITLE__">
+  <meta name="twitter:description" content="__DESCRIPTION__">
+  <meta name="twitter:image" content="__IMAGE_ABSOLUTE_URL__">
+  <link rel="icon" href="/shared/img/logo-ofertas.png" type="image/png">
+  <title>__TITLE__</title>
+  <link rel="stylesheet" href="/shared/css/base.css">
+  <link rel="stylesheet" href="/shared/css/header.css">
+  <link rel="stylesheet" href="/shared/css/footer.css">
+  <link rel="stylesheet" href="/shared/css/oferta.css">
+  <script type="application/ld+json">__STRUCTURED_DATA__</script>
+</head>
+<body data-region="__REGION__">
+  <div id="header-placeholder"></div>
+
+  <main class="oferta-page">
+    <div class="oferta-container">
+      <nav class="oferta-breadcrumbs" aria-label="Migas de pan">
+        <a href="/">Inicio</a>
+        <span aria-hidden="true">/</span>
+        <a href="__CITY_PATH__">Ofertas en __REGION_NAME__</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Oferta</span>
+      </nav>
+
+      <article class="oferta-card">
+        <header class="oferta-header">
+          <h1>Oferta en __REGION_NAME__</h1>
+          __DATE_MARKUP__
+        </header>
+
+        <figure class="oferta-visual">
+          <img
+            src="__IMAGE_SRC__"
+            srcset="__IMAGE_SRCSET__"
+            sizes="(max-width: 760px) calc(100vw - 2rem), 760px"
+            alt="Oferta en __REGION_NAME__"
+            fetchpriority="high"
+            decoding="async"__IMAGE_DIMENSIONS____IMAGE_ROTATION__
+            onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'"
+          >
+        </figure>
+
+        <div class="oferta-actions">
+          <a class="oferta-back" href="__CITY_PATH__">Volver a las ofertas</a>
+          __CONTACT_MARKUP__
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <div id="footer-placeholder"></div>
+  <script src="/shared/js/components.js"></script>
+</body>
+</html>
