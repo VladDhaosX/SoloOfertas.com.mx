@@ -47,8 +47,12 @@ function dataPath(region, filename) {
   return path.join(CONTENT_DIR, region, 'data', filename);
 }
 
+function contentPath(...parts) {
+  return path.join(CONTENT_DIR, ...parts);
+}
+
 function uploadsPath(region, type, filename = '') {
-  return path.join(CONTENT_DIR, region, 'uploads', type, filename);
+  return contentPath(region, 'uploads', type, filename);
 }
 
 function missingContentFiles() {
@@ -84,6 +88,7 @@ module.exports = {
   STORAGE_DIR,
   REGIONS,
   REQUIRED_DATA_FILES,
+  contentPath,
   dataPath,
   uploadsPath,
   missingContentFiles,

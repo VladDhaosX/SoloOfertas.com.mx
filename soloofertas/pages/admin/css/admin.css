@@ -183,7 +183,9 @@ button[type="submit"]:disabled {
   border-color: #555;
 }
 
-.btn-logout {
+.btn-logout,
+.btn-backup,
+.btn-restore {
   padding: 0.35rem 0.9rem;
   background: transparent;
   border: 1px solid var(--border);
@@ -195,10 +197,49 @@ button[type="submit"]:disabled {
   transition: all 0.2s;
 }
 
+.btn-restore {
+  display: inline-block;
+}
+
 .btn-logout:hover {
   background: var(--danger);
   border-color: var(--danger);
   color: var(--text);
+}
+
+.btn-backup:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.btn-restore:hover {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--text);
+}
+
+.btn-backup:disabled,
+.btn-restore.is-disabled {
+  cursor: wait;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.backup-status {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.78rem;
+  min-height: 1rem;
+  text-align: right;
+}
+
+.backup-status.ok {
+  color: #4ade80;
+}
+
+.backup-status.error {
+  color: #f87171;
 }
 
 .admin-main {
@@ -216,6 +257,30 @@ button[type="submit"]:disabled {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 1.5rem;
+}
+
+.admin-section-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-section-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.65rem 1rem;
+}
+
+.admin-section-tab:hover,
+.admin-section-tab.active {
+  border-bottom-color: var(--accent);
+  color: #60a5fa;
 }
 
 .admin-card h2 {
@@ -377,7 +442,8 @@ button[type="submit"]:disabled {
   display: block;
 }
 
-.btn-phone-vacante {
+.btn-phone-vacante,
+.btn-rotate-vacante {
   width: 100%;
   background: transparent;
   color: var(--text);
@@ -391,7 +457,8 @@ button[type="submit"]:disabled {
   white-space: nowrap;
 }
 
-.btn-phone-vacante:hover {
+.btn-phone-vacante:hover,
+.btn-rotate-vacante:hover {
   background: #2a2a2a;
 }
 
@@ -406,26 +473,6 @@ button[type="submit"]:disabled {
   font-weight: 700;
   line-height: 1;
   padding: 0.2rem 0.3rem;
-  z-index: 1;
-}
-
-.btn-rotate-vacante {
-  display: none;
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 22px;
-  height: 22px;
-  background: #444;
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  font-size: 0.85rem;
-  cursor: pointer;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  opacity: 0.85;
   z-index: 1;
 }
 
@@ -591,5 +638,9 @@ button[type="submit"]:disabled {
 
   .admin-header {
     padding: 0.6rem 1rem;
+  }
+
+  .admin-section-tabs {
+    overflow-x: auto;
   }
 }

@@ -9,17 +9,21 @@
     "postinstall": "npm run content:init",
     "content:init": "node soloofertas/scripts/init-content.js",
     "test:content": "node soloofertas/tests/content-store.test.js",
-    "test": "node soloofertas/tests/content-paths.test.js && npm run test:content && node soloofertas/tests/cupones.test.js && node soloofertas/tests/server-smoke.test.js"
+    "test": "node soloofertas/tests/content-paths.test.js && npm run test:content && node soloofertas/tests/cupones.test.js && node soloofertas/tests/vacantes.test.js && node soloofertas/tests/media.test.js && node soloofertas/tests/backup.test.js && node soloofertas/tests/server-smoke.test.js"
   },
   "engines": {
     "node": "22.x"
   },
   "dependencies": {
+    "archiver": "^8.0.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
     "jsonwebtoken": "^9.0.0",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^9.0.3"
+    "nodemailer": "^9.0.3",
+    "sharp": "^0.35.3",
+    "unzipper": "^0.12.3"
   }
 }

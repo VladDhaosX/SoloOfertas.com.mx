@@ -97,19 +97,32 @@
       }
 
       const MIN_CELLS = type === 'cupones' ? 0 : 8;
-      const items = data.map(v => `
-        <div class="vacante-item">
+      const items = data.map(v => {
+        const filename = encodeURIComponent(String(v.url || '').split('/').pop());
+        const detailUrl = type === 'vacantes' && v.id
+          ? `/${region}/ofertas/${encodeURIComponent(String(v.id))}/`
+          : '';
+        const image = `
           <img
-            src="${escapeAttr(v.url)}"
-            data-full-src="${escapeAttr(v.url)}"
+            src="/media/${region}/${type}/${filename}?preset=thumb"
+            srcset="/media/${region}/${type}/${filename}?preset=small 360w, /media/${region}/${type}/${filename}?preset=thumb 640w"
+            sizes="(max-width: 600px) calc(100vw - 2rem), (max-width: 900px) calc(50vw - 2rem), 390px"
+            data-full-src="/media/${region}/${type}/${filename}?preset=full"
             alt="${escapeAttr(type === 'cupones' ? `Cupón en ${regionName}` : `Oferta en ${regionName}`)}"
             loading="lazy"
             decoding="async"
             onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'"
-          >
+          >`;
+        const visual = detailUrl
+          ? `<a class="vacante-detail-link" href="${detailUrl}" aria-label="Ver oferta ${escapeAttr(v.id)} en ${regionName}">${image}<span class="vacante-detail-label">Ver oferta</span></a>`
+          : image;
+        return `
+        <div class="vacante-item">
+          ${visual}
           ${type === 'vacantes' ? whatsappButton(v.telefono) : ''}
         </div>
-      `).join('');
+      `;
+      }).join('');
       const empty = data.length < MIN_CELLS
         ? Array(MIN_CELLS - data.length).fill('<div class="vacante-item vacante-empty"></div>').join('')
         : '';
@@ -147,7 +160,10 @@
     function open(src, whatsappUrl, isCoupon) {
       modalImg.src = src;
       modal.classList.toggle('is-cupones', isCoupon);
-      if (isCoupon) modalDownload.href = new URL(src, window.location.href).pathname;
+      if (isCoupon) {
+        const url = new URL(src, window.location.href);
+        modalDownload.href = url.pathname.replace('/media/gdl/cupones/', '/gdl/uploads/cupones/');
+      }
       else modalDownload.removeAttribute('href');
       if (whatsappUrl) {
         modalWhatsapp.href = whatsappUrl;
@@ -167,6 +183,7 @@
 
     gallery.addEventListener('click', (e) => {
       if (e.target.closest('.vacante-whatsapp')) return;
+      if (e.target.closest('.vacante-detail-link')) return;
       const img = e.target.closest('.vacante-item img, .cupon-destacado img');
       if (!img) return;
       const item = img.closest('.vacante-item');

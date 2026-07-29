@@ -3,15 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Solo Ofertas — Guadalajara y Monterrey</title>
+  <meta name="description" content="Descubre ofertas, promociones, anuncios y campañas locales en Guadalajara y Monterrey con Solo Ofertas.">
+  <link rel="canonical" href="https://soloofertas.com/">
+  <meta property="og:locale" content="es_MX">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Solo Ofertas">
+  <meta property="og:title" content="Ofertas en Guadalajara y Monterrey | Solo Ofertas">
+  <meta property="og:description" content="Promociones, anuncios y campañas locales de Guadalajara y Monterrey.">
+  <meta property="og:url" content="https://soloofertas.com/">
+  <meta property="og:image" content="https://soloofertas.com/shared/img/logo-ofertas.png">
+  <meta property="og:image:alt" content="Solo Ofertas">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Ofertas en Guadalajara y Monterrey | Solo Ofertas">
+  <meta name="twitter:description" content="Promociones, anuncios y campañas locales de Guadalajara y Monterrey.">
+  <meta name="twitter:image" content="https://soloofertas.com/shared/img/logo-ofertas.png">
+  <link rel="icon" href="/shared/img/logo-ofertas.png" type="image/png">
+  <title>Ofertas en Guadalajara y Monterrey | Solo Ofertas</title>
   <link rel="stylesheet" href="/shared/css/base.css">
   <link rel="stylesheet" href="/css/landing.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": "https://soloofertas.com/#organization",
+    "name": "Solo Ofertas",
+    "url": "https://soloofertas.com/",
+    "logo": "https://soloofertas.com/shared/img/logo-ofertas.png",
+    "description": "Ofertas, promociones, anuncios y campañas locales en Guadalajara y Monterrey.",
+    "email": "marketing@soloofertas.com",
+    "telephone": "+52 33 3447 7077",
+    "areaServed": [
+      { "@type": "City", "name": "Guadalajara" },
+      { "@type": "City", "name": "Monterrey" }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": "https://soloofertas.com/#website",
+    "name": "Solo Ofertas",
+    "url": "https://soloofertas.com/",
+    "inLanguage": "es-MX",
+    "publisher": { "@id": "https://soloofertas.com/#organization" }
+  }
+  </script>
 </head>
 <body>
 
-  <div class="landing-wrapper">
+  <main class="landing-wrapper">
+    <h1 class="sr-only">Ofertas y promociones en Guadalajara y Monterrey</h1>
     <div class="landing-logo">
-      <img src="/shared/img/logo-ofertas.png?v=20260722" alt="Solo Ofertas y Empleos">
+      <img src="/shared/img/logo-ofertas.png?v=20260722" alt="Solo Ofertas" width="2048" height="512" decoding="async">
     </div>
 
     <div class="landing-cities">
@@ -19,6 +63,8 @@
         <h2 class="city-title">GUADALAJARA</h2>
         <div class="city-cover">
           <img id="portada-gdl" src="__SSR_PORTADA_GDL__" alt="Portada Guadalajara"
+               width="__SSR_PORTADA_GDL_WIDTH__" height="__SSR_PORTADA_GDL_HEIGHT__"
+               fetchpriority="high" decoding="async"
                onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">
         </div>
       </a>
@@ -27,11 +73,13 @@
         <h2 class="city-title">MONTERREY</h2>
         <div class="city-cover">
           <img id="portada-mty" src="__SSR_PORTADA_MTY__" alt="Portada Monterrey"
+               width="__SSR_PORTADA_MTY_WIDTH__" height="__SSR_PORTADA_MTY_HEIGHT__"
+               decoding="async"
                onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">
         </div>
       </a>
     </div>
-  </div>
+  </main>
 
 </body>
 </html>

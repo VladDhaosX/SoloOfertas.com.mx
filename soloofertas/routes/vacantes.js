@@ -120,6 +120,20 @@ module.exports = function (region) {
     }
   });
 
+  router.put('/vacantes/:id/rotate', requireAuth, (req, res) => {
+    try {
+      const lista = readVacantes();
+      const item = lista.find(vacante => vacante.id === req.params.id);
+      if (!item) return res.status(404).json({ error: 'Oferta no encontrada' });
+      item.rotation = ((Number(item.rotation) || 0) + 90) % 360;
+      writeVacantes(lista);
+      res.json({ ok: true, rotation: item.rotation });
+    } catch (err) {
+      console.error('vacantes rotate error:', err);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  });
+
   router.put('/vacantes/:id/telefono', requireAuth, (req, res) => {
     const { id } = req.params;
     const telefono = String(req.body.telefono || '').trim();
