@@ -686,6 +686,18 @@ app.get(/^\/ofertas-(gdl|mty)\/(?:contacto\/?|directorio\.php)$/i, (req, res) =>
   const region = String(req.params[0]).toLowerCase();
   res.redirect(301, redirectUrl(req, `/${region}/contacto/`));
 });
+app.get('/:region(gdl|mty)/ofertas/:id/', (req, res, next) => {
+  const { region, id } = req.params;
+  const offer = readOffers(region, true).find(item => String(item && item.id) === String(id));
+  if (!offer) return next();
+
+  const html = renderOfferPage(region, offer);
+  if (!html) return next(new Error('No se pudo cargar la plantilla de oferta'));
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.set('Cache-Control', 'no-cache');
+  res.set('X-Robots-Tag', 'noindex, follow');
+  res.send(html);
+});
 app.get([
   /^\/ofertas-(?:gdl|mty)\/.+/i,
   /^\/(?:gdl|mty)\/consumidor(?:\/|$)/i,
@@ -708,19 +720,6 @@ app.get('/sitemap.xml', (_req, res) => {
   res.type('application/xml');
   res.set('Cache-Control', 'public, max-age=300');
   res.send(renderSitemapXml());
-});
-
-app.get('/:region(gdl|mty)/ofertas/:id/', (req, res, next) => {
-  const { region, id } = req.params;
-  const offer = readOffers(region, true).find(item => String(item && item.id) === String(id));
-  if (!offer) return next();
-
-  const html = renderOfferPage(region, offer);
-  if (!html) return next(new Error('No se pudo cargar la plantilla de oferta'));
-  res.set('Content-Type', 'text/html; charset=utf-8');
-  res.set('Cache-Control', 'no-cache');
-  res.set('X-Robots-Tag', 'noindex, follow');
-  res.send(html);
 });
 
 app.use('/admin', (_req, res, next) => {
