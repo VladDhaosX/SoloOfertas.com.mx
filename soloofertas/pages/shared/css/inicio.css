@@ -621,6 +621,94 @@ body[data-content="cupones"] .vacante-item:hover img {
   padding: 3rem 0;
 }
 
+.region-info {
+  padding: 4rem 6rem;
+  background: #f5f6f8;
+  color: #202124;
+}
+
+.region-info > .container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.region-info-eyebrow {
+  margin: 0 0 0.5rem;
+  color: #6a1b9a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.region-info h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  line-height: 1.15;
+}
+
+.region-info-summary {
+  max-width: 760px;
+  margin: 1rem 0 2rem;
+  color: #4b4d51;
+  line-height: 1.7;
+}
+
+.region-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.region-info-grid article {
+  padding: 1.5rem;
+  border: 1px solid #e0e2e5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.region-info-grid h3,
+.region-faq h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1.15rem;
+}
+
+.region-info-grid p,
+.region-faq p {
+  margin: 0;
+  color: #55585d;
+  line-height: 1.6;
+}
+
+.region-info a {
+  color: #6a1b9a;
+  font-weight: 700;
+}
+
+.region-info-grid a {
+  display: inline-block;
+  margin-top: 0.8rem;
+}
+
+.region-faq {
+  max-width: 800px;
+  margin-top: 2.5rem;
+}
+
+.region-faq details {
+  padding: 1rem 0;
+  border-top: 1px solid #d8dade;
+}
+
+.region-faq summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.region-faq details p {
+  padding-top: 0.75rem;
+}
+
 @media (max-width: 1100px) {
   .vacantes-section {
     padding: 2.5rem 2rem 3rem;
@@ -652,6 +740,10 @@ body[data-content="cupones"] .vacante-item:hover img {
   .hero-overlay h2 {
     font-size: 2.25rem;
   }
+
+  .region-info-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 600px) {
@@ -662,6 +754,10 @@ body[data-content="cupones"] .vacante-item:hover img {
   .hero {
     height: 280px;
     margin: 1rem 1rem 0;
+  }
+
+  .region-info {
+    padding: 3rem 1rem;
   }
 
   .vacantes-grid {

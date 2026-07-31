@@ -32,10 +32,12 @@ const PUBLIC_PAGE_PATHS = new Set([
   '/',
   '/gdl/inicio/',
   '/mty/inicio/',
+  '/gdl/guia-ofertas/',
+  '/mty/guia-ofertas/',
   '/gdl/contacto/',
   '/mty/contacto/',
 ]);
-const PUBLIC_PAGE_SLUGS = new Set(['inicio', 'contacto']);
+const PUBLIC_PAGE_SLUGS = new Set(['inicio', 'guia-ofertas', 'contacto']);
 
 function isPublicRegionPage(region, slug) {
   return REGIONS.includes(region) && PUBLIC_PAGE_SLUGS.has(slug);
@@ -268,15 +270,12 @@ function newestDate(paths) {
   return new Date(times.length ? Math.max(...times) : Date.now()).toISOString().slice(0, 10);
 }
 
-function sitemapEntry(relativeUrl, priority, paths, options = {}) {
-  const lastmod = options.lastmod || newestDate(paths);
-  const image = options.imageUrl
-    ? `\n    <image:image>\n      <image:loc>${escapeXml(options.imageUrl)}</image:loc>\n    </image:image>`
-    : '';
+function sitemapEntry(relativeUrl, priority, paths) {
+  const lastmod = newestDate(paths);
   return `  <url>
     <loc>${escapeXml(`${site.publicOrigin}${relativeUrl}`)}</loc>
     <lastmod>${escapeXml(lastmod)}</lastmod>
-    <priority>${priority}</priority>${image}
+    <priority>${priority}</priority>
   </url>`;
 }
 
@@ -313,30 +312,14 @@ function renderSitemapXml() {
       dataPath('mty', 'vacantes.json'),
       dataPath('mty', 'portada.json'),
     ]),
+    sitemapEntry('/gdl/guia-ofertas/', '0.7', [path.join(PAGES_DIR, 'gdl', 'guia-ofertas', 'index.html')]),
+    sitemapEntry('/mty/guia-ofertas/', '0.7', [path.join(PAGES_DIR, 'mty', 'guia-ofertas', 'index.html')]),
     sitemapEntry('/gdl/contacto/', '0.7', [path.join(PAGES_DIR, 'gdl', 'contacto', 'index.html')]),
     sitemapEntry('/mty/contacto/', '0.7', [path.join(PAGES_DIR, 'mty', 'contacto', 'index.html')]),
   ];
 
-  for (const region of REGIONS) {
-    const dataFile = dataPath(region, 'vacantes.json');
-    for (const offer of readOffers(region)) {
-      if (!offer || !offer.id || !offer.url) continue;
-      const filename = path.basename(String(offer.url));
-      entries.push(sitemapEntry(
-        offerPath(region, offer.id),
-        '0.6',
-        [dataFile, uploadsPath(region, 'vacantes', filename)],
-        {
-          lastmod: validDateOnly(offer.fecha) || undefined,
-          imageUrl: `${site.publicOrigin}${optimizedMediaUrl(region, 'vacantes', offer.url, 'full')}`,
-        }
-      ));
-    }
-  }
-
   return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${entries.join('\n')}
 </urlset>
 `;
@@ -464,7 +447,7 @@ function renderVacantes(region) {
     if (digits.length === 10) digits = `52${digits}`;
     return digits ? `https://wa.me/${digits}` : '';
   };
-  const items = data.map(v => {
+  const items = data.map((v, index) => {
     const filename = path.basename(String(v.url || ''));
     const rotation = Number(v.rotation);
     const rot = Number.isFinite(rotation) && rotation !== 0
@@ -481,7 +464,8 @@ function renderVacantes(region) {
           `<img src="/shared/img/whatsapp.svg" alt="" aria-hidden="true">` +
         `</a>`
       : '';
-    const image = `<img src="${esc(thumbUrl)}"${responsiveImageAttrs(region, 'vacantes', v.url)} data-full-src="${esc(fullUrl)}" alt="Oferta en ${regionName}"${imageDimensionAttrs(sourcePath)} loading="lazy" decoding="async"${rot} ` +
+    const loadAttrs = index === 0 ? ' fetchpriority="high"' : ' loading="lazy" fetchpriority="low"';
+    const image = `<img src="${esc(thumbUrl)}"${responsiveImageAttrs(region, 'vacantes', v.url)} data-full-src="${esc(fullUrl)}" alt="Oferta en ${regionName}"${imageDimensionAttrs(sourcePath)}${loadAttrs} decoding="async"${rot} ` +
       `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">`;
     const visual = detailUrl
       ? `<a class="vacante-detail-link" href="${esc(detailUrl)}" aria-label="Ver oferta ${esc(v.id)} en ${regionName}">${image}<span class="vacante-detail-label">Ver oferta</span></a>`
@@ -694,8 +678,30 @@ function injectPortadas(html) {
     .replaceAll('__SSR_HERO_POSTER_MTY__', mty.poster);
 }
 
+app.get(/^\/ofertas-(gdl|mty)\/?$/i, (req, res) => {
+  const region = String(req.params[0]).toLowerCase();
+  res.redirect(301, redirectUrl(req, `/${region}/inicio/`));
+});
+app.get(/^\/ofertas-(gdl|mty)\/(?:contacto\/?|directorio\.php)$/i, (req, res) => {
+  const region = String(req.params[0]).toLowerCase();
+  res.redirect(301, redirectUrl(req, `/${region}/contacto/`));
+});
+app.get([
+  /^\/ofertas-(?:gdl|mty)\/.+/i,
+  /^\/(?:gdl|mty)\/consumidor(?:\/|$)/i,
+  /^\/(?:gdl|mty)\/ofertas\/(?!\d+\/?$)[^/]+\/?$/i,
+], (req, res) => {
+  const regionMatch = req.path.match(/(?:^\/|ofertas-)(gdl|mty)(?:\/|$)/i);
+  const html = injectFragments(readFragment(NOT_FOUND_PAGE), regionMatch && regionMatch[1].toLowerCase(), null);
+  res.status(410);
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  res.set('Cache-Control', 'no-cache');
+  res.set('X-Robots-Tag', 'noindex, nofollow');
+  res.send(html || '<!doctype html><title>Contenido retirado</title><h1>Contenido retirado</h1>');
+});
+
 // ponytail: redireccion reversible; conserva contenido y API para reactivarlos sin migracion.
-app.use('/gdl/cupones', (_req, res) => res.redirect('/gdl/inicio/'));
+app.use('/gdl/cupones', (_req, res) => res.redirect(301, '/gdl/inicio/'));
 app.use(['/gdl/data/cupones.json', '/gdl/uploads/cupones'], (_req, res) => res.status(404).end());
 
 app.get('/sitemap.xml', (_req, res) => {
@@ -713,6 +719,7 @@ app.get('/:region(gdl|mty)/ofertas/:id/', (req, res, next) => {
   if (!html) return next(new Error('No se pudo cargar la plantilla de oferta'));
   res.set('Content-Type', 'text/html; charset=utf-8');
   res.set('Cache-Control', 'no-cache');
+  res.set('X-Robots-Tag', 'noindex, follow');
   res.send(html);
 });
 
