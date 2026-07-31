@@ -45,23 +45,36 @@ SMTP_PORT=...
 SMTP_USER=...
 SMTP_PASS=...
 EMAIL_DESTINO=...
+MEDIA_STORAGE=r2
+R2_ACCOUNT_ID=...
+R2_BUCKET=soloofertas-media-prod
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+MEDIA_DELIVERY_BASE_URL=https://soloofertas-images.<cuenta>.workers.dev
 ```
 
 No guardar secretos en GitHub ni en archivos del repositorio.
+
+`R2_ENDPOINT` es opcional; si se omite se usa el endpoint S3 del `R2_ACCOUNT_ID`.
 
 ## Persistencia
 
 `CONTENT_DIR` debe apuntar a un directorio escribible que Hostinger no reemplace durante cada build. El directorio tiene que estar fuera de la raiz desplegada `soloofertas` y fuera de `public_html`; puede ser un directorio hermano administrado por la misma cuenta de hosting.
 
-Antes del primer despliegue:
+Antes del primer despliegue con R2:
 
 1. Crear el directorio persistente desde el administrador de archivos de Hostinger.
 2. Confirmar permisos de lectura, escritura y renombrado para el proceso Node.js.
 3. Configurar la ruta absoluta en `CONTENT_DIR`.
-4. Ejecutar el despliegue. El build siembra el volumen desde el snapshot versionado.
-5. Subir un archivo de prueba desde el administrador, redeplegar y confirmar que sigue disponible.
+4. Crear el bucket `soloofertas-media-prod`, su token S3 y el Worker independiente descrito en `soloofertas/cloudflare/image-worker/README.md`.
+5. Desplegar primero con las credenciales R2 pero `MEDIA_STORAGE=local`.
+6. Ejecutar `npm run media:migrate -- --delete-local` dentro de `soloofertas`.
+7. Confirmar que los JSON contienen `media.provider: "r2"`, cambiar a `MEDIA_STORAGE=r2` y redeplegar.
+8. Subir una imagen de prueba desde el administrador, redeplegar y confirmar que sigue disponible.
 
 Mientras la aplicacion use JSON y archivos, mantener una sola instancia activa.
+
+Con `MEDIA_STORAGE=r2`, el navegador carga la imagen directamente a R2 mediante una URL PUT temporal. Hostinger solo firma la operacion, comprueba el objeto y publica el JSON; el Worker sirve y transforma la imagen. Las rutas locales `/uploads` y `/media` quedan deshabilitadas.
 
 ## Verificacion y rollback
 
@@ -94,6 +107,6 @@ Si una publicacion falla:
 
 Los respaldos de contenido se encuentran dentro de `CONTENT_DIR/.backups/` y deben incluirse en la politica externa de backups del hosting.
 
-El administrador permite descargar un ZIP con los JSON e imagenes de ambas regiones. Las carpetas `.cache` no se incluyen. La restauracion valida primero el ZIP en un directorio temporal, comprueba JSON e imagenes y despues intercambia las regiones; el contenido anterior se conserva en `CONTENT_DIR/.backups/restores/`. Se retienen los tres snapshots de restauracion mas recientes.
+El administrador permite descargar y restaurar un ZIP con los JSON de ambas regiones. La restauracion valida todas las referencias R2 antes de intercambiar las regiones; el contenido anterior se conserva en `CONTENT_DIR/.backups/restores/`. Se retienen los tres snapshots de restauracion mas recientes.
 
-Las versiones WebP se generan bajo las carpetas `.cache` de cada tipo de carga usando presets cerrados. Sharp trabaja con una sola tarea nativa concurrente para limitar picos de memoria. Estas versiones son derivadas y pueden regenerarse, por lo que no necesitan respaldo externo.
+Los objetos de R2 no forman parte de ese ZIP. Configurar por separado la politica de respaldo o versionado del bucket. Las variantes son derivadas por el Worker y no usan Sharp ni CPU de Hostinger.

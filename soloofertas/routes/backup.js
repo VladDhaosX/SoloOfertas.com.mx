@@ -6,18 +6,18 @@ const { Transform } = require('stream');
 const { pipeline } = require('stream/promises');
 const multer = require('multer');
 const unzipper = require('unzipper');
-const sharp = require('sharp');
 const requireAuth = require('../middleware/auth');
 const { CONTENT_DIR, REGIONS, contentPath, assertContentConfigured } = require('../content-paths');
 const { BACKUPS_DIR } = require('../content-store');
 const { beginMaintenance, endMaintenance } = require('../maintenance-state');
+const { TYPE_PRESETS, parseMediaKey } = require('../services/r2-storage');
 const site = require('../site-config');
 
 const router = express.Router();
 const CONTENT_PARENT = path.dirname(path.resolve(CONTENT_DIR));
 const UPLOAD_ROOT = path.join(CONTENT_PARENT, '.soloofertas-restore-uploads');
 const WORK_ROOT = path.join(CONTENT_PARENT, '.soloofertas-restore-work');
-const RESTORE_ROOTS = new Set(['gdl/data', 'gdl/uploads', 'mty/data', 'mty/uploads']);
+const RESTORE_ROOTS = new Set(['gdl/data', 'mty/data']);
 const REQUIRED_DATA = [
   'gdl/data/portada.json',
   'gdl/data/vacantes.json',
@@ -89,8 +89,7 @@ function restoreRoot(zipPath) {
 function allowedRestoreFile(zipPath) {
   const root = restoreRoot(zipPath);
   if (!root || zipPath.includes('/.cache/')) return false;
-  if (root.endsWith('/data')) return REQUIRED_DATA.includes(zipPath);
-  return /\.(?:jpe?g|png|webp|gif)$/i.test(zipPath);
+  return REQUIRED_DATA.includes(zipPath);
 }
 
 function entryExpandedSize(entry) {
@@ -185,24 +184,26 @@ function assertJsonArray(filePath, label) {
   return data;
 }
 
-function referencedImage(stageRoot, region, type, url) {
-  const expectedPrefix = `/${region}/uploads/${type}/`;
-  if (typeof url !== 'string' || !url.startsWith(expectedPrefix)) {
-    throw new RestoreValidationError(`URL de ${type} invalida para ${region}`);
+function assertRemoteMedia(item, region, type) {
+  if (item?.media?.provider !== 'r2' || typeof item.url !== 'string') {
+    throw new RestoreValidationError(`Imagen R2 invalida para ${region}/${type}`);
   }
-  const filename = path.basename(url);
-  if (!filename || filename !== url.slice(expectedPrefix.length)) {
-    throw new RestoreValidationError(`Nombre de imagen invalido para ${region}/${type}`);
+  let parsed;
+  try { parsed = parseMediaKey(item.media.key); } catch (_) {
+    throw new RestoreValidationError(`Clave R2 invalida para ${region}/${type}`);
   }
-  const imagePath = resolveInside(stageRoot, `${region}/uploads/${type}/${filename}`);
-  if (!fs.existsSync(imagePath)) {
-    throw new RestoreValidationError(`Falta la imagen referenciada: ${region}/uploads/${type}/${filename}`);
+  if (parsed.region !== region || parsed.type !== type) {
+    throw new RestoreValidationError(`Clave R2 invalida para ${region}/${type}`);
   }
-  return imagePath;
+  const urls = [item.url, ...TYPE_PRESETS[type].map(preset => item.media.urls?.[preset])];
+  if (urls.some(value => {
+    try { return new URL(String(value || '')).protocol !== 'https:'; } catch (_) { return true; }
+  })) {
+    throw new RestoreValidationError(`URL R2 invalida para ${region}/${type}`);
+  }
 }
 
 async function validateStage(stageRoot) {
-  const referenced = new Set();
   for (const region of REGIONS) {
     const portadaPath = resolveInside(stageRoot, `${region}/data/portada.json`);
     let portada;
@@ -212,7 +213,7 @@ async function validateStage(stageRoot) {
     if (!portada || typeof portada !== 'object') {
       throw new RestoreValidationError(`portada.json invalido para ${region}`);
     }
-    referenced.add(referencedImage(stageRoot, region, 'portadas', portada.url));
+    assertRemoteMedia(portada, region, 'portadas');
 
     const vacantes = assertJsonArray(
       resolveInside(stageRoot, `${region}/data/vacantes.json`),
@@ -222,7 +223,7 @@ async function validateStage(stageRoot) {
       if (!item || typeof item.id !== 'string') {
         throw new RestoreValidationError(`Oferta invalida en ${region}`);
       }
-      referenced.add(referencedImage(stageRoot, region, 'vacantes', item.url));
+      assertRemoteMedia(item, region, 'vacantes');
     }
   }
 
@@ -232,13 +233,7 @@ async function validateStage(stageRoot) {
   );
   for (const item of cupones) {
     if (!item || typeof item.id !== 'string') throw new RestoreValidationError('Cupon invalido en gdl');
-    referenced.add(referencedImage(stageRoot, 'gdl', 'cupones', item.url));
-  }
-
-  for (const imagePath of referenced) {
-    try { await sharp(imagePath).metadata(); } catch (_) {
-      throw new RestoreValidationError(`Imagen invalida: ${path.relative(stageRoot, imagePath)}`);
-    }
+    assertRemoteMedia(item, 'gdl', 'cupones');
   }
 }
 
@@ -332,13 +327,13 @@ router.get('/backup', requireAuth, async (_req, res) => {
     archive.pipe(res);
     for (const region of REGIONS) {
       addDirectory(archive, contentPath(region, 'data'), `${region}/data`);
-      addDirectory(archive, contentPath(region, 'uploads'), `${region}/uploads`);
     }
     archive.append(JSON.stringify({
       site: 'soloofertas',
       generatedAt: new Date().toISOString(),
-      formatVersion: 1,
-      excludes: ['.cache', '.backups'],
+      formatVersion: 2,
+      media: 'Cloudflare R2; los objetos se respaldan fuera de Hostinger',
+      excludes: ['imagenes R2', '.backups'],
     }, null, 2), { name: 'backup-manifest.json' });
     archive.finalize();
   } catch (err) {

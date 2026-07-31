@@ -149,10 +149,46 @@
       .replace(/>/g, '&gt;');
   }
 
-  function mediaUrl(region, type, url, preset = 'admin') {
+  function mediaUrl(region, type, item, preset = 'admin') {
+    const remote = item && typeof item === 'object' ? item.media?.urls?.[preset] : '';
+    for (const candidate of [remote, typeof item === 'object' ? item?.url : item]) {
+      try {
+        const parsed = new URL(String(candidate || ''));
+        if (parsed.protocol === 'https:') return parsed.href;
+      } catch (_) {}
+    }
+    const url = typeof item === 'object' ? item?.url : item;
     const filename = String(url || '').split('/').pop();
     if (!filename) return '';
-    return `/media/${region}/${type}/${encodeURIComponent(filename)}?preset=${encodeURIComponent(preset)}`;
+    return `/${region}/uploads/${type}/${encodeURIComponent(filename)}`;
+  }
+
+  async function uploadToR2(file, type, region = state.region) {
+    const ticketResponse = await apiRequest(`/soloofertas/${region}/media/uploads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, mime: file.type, size: file.size }),
+    });
+    if (!ticketResponse) throw new Error('La sesion expiro');
+    const ticket = await ticketResponse.json().catch(() => ({}));
+    if (!ticketResponse.ok) throw new Error(ticket.error || 'No se pudo autorizar la carga');
+
+    const uploadResponse = await fetch(ticket.uploadUrl, {
+      method: 'PUT',
+      headers: ticket.headers,
+      body: file,
+    });
+    if (!uploadResponse.ok) throw new Error('R2 rechazo la carga');
+    return ticket.key;
+  }
+
+  async function cleanupR2(keys, region = state.region) {
+    if (!keys.length) return;
+    await apiRequest(`/soloofertas/${region}/media/uploads`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys }),
+    }).catch(() => {});
   }
 
   function getFilenameFromDisposition(disposition) {
@@ -172,7 +208,7 @@
     if (!btn) return;
     btn.disabled = true;
     btn.textContent = 'Preparando...';
-    setBackupStatus('', 'Generando respaldo de datos e imagenes...');
+    setBackupStatus('', 'Generando respaldo de datos...');
     try {
       const res = await apiRequest('/soloofertas/backup');
       if (!res) return;
@@ -239,7 +275,7 @@
       const data = await res.json();
       const img = document.getElementById('portada-preview');
       const ph = document.getElementById('portada-placeholder');
-      img.src = mediaUrl(state.region, 'portadas', data.url, 'cover');
+      img.src = mediaUrl(state.region, 'portadas', data, 'cover');
       img.style.display = 'block';
       img.onerror = () => {
         img.style.display = 'none';
@@ -254,18 +290,21 @@
 
   async function uploadPortada(file) {
     UI.setStatus('portada-status', 'loading', 'Subiendo...');
-    const fd = new FormData();
-    fd.append('imagen', file);
-
-    const res = await apiRequest(`/soloofertas/${state.region}/portada`, { method: 'POST', body: fd });
-    if (!res) return;
-
-    if (res.ok) {
+    let key;
+    try {
+      key = await uploadToR2(file, 'portadas');
+      const res = await apiRequest(`/soloofertas/${state.region}/portada`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      const data = await res?.json().catch(() => ({}));
+      if (!res?.ok) throw new Error(data?.error || 'Error al publicar');
       UI.setStatus('portada-status', 'ok', 'Portada actualizada.');
       await loadPortada();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      UI.setStatus('portada-status', 'error', d.error || 'Error al subir');
+    } catch (err) {
+      if (key) await cleanupR2([key]);
+      UI.setStatus('portada-status', 'error', err.message || 'Error al subir');
     }
   }
 
@@ -297,7 +336,7 @@
       const telefono = v.telefono || '';
       return `
       <div class="admin-vacante-item" data-id="${v.id}" data-rotation="${rot}" data-telefono="${escapeAttr(telefono)}" draggable="true">
-        <img src="${mediaUrl(state.region, 'vacantes', v.url)}" alt="Oferta" loading="lazy"${rotStyle}
+        <img src="${mediaUrl(state.region, 'vacantes', v)}" alt="Oferta" loading="lazy"${rotStyle}
              onerror="this.onerror=null;this.style.opacity='.3'">
         <div class="vacante-menu">
           <button class="btn-menu-vacante" data-id="${v.id}" type="button" title="Opciones" aria-label="Opciones">...</button>
@@ -472,20 +511,26 @@
 
   async function uploadVacantes(files) {
     const total = files.length;
-    for (let i = 0; i < total; i++) {
-      UI.setStatus('vacantes-status', 'loading', `Subiendo ${i + 1} de ${total}...`);
-      const fd = new FormData();
-      fd.append('imagen', files[i]);
-      const res = await apiRequest(`/soloofertas/${state.region}/vacantes`, { method: 'POST', body: fd });
-      if (!res) return;
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        UI.setStatus('vacantes-status', 'error', d.error || 'Error al subir');
-        return;
+    try {
+      for (let i = 0; i < total; i++) {
+        UI.setStatus('vacantes-status', 'loading', `Subiendo ${i + 1} de ${total}...`);
+        const key = await uploadToR2(files[i], 'vacantes');
+        const res = await apiRequest(`/soloofertas/${state.region}/vacantes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key }),
+        });
+        const data = await res?.json().catch(() => ({}));
+        if (!res?.ok) {
+          await cleanupR2([key]);
+          throw new Error(data?.error || 'Error al publicar');
+        }
       }
+      UI.setStatus('vacantes-status', 'ok', `${total} oferta(s) subida(s).`);
+      await loadVacantes();
+    } catch (err) {
+      UI.setStatus('vacantes-status', 'error', err.message || 'Error al subir');
     }
-    UI.setStatus('vacantes-status', 'ok', `${total} oferta(s) subida(s).`);
-    await loadVacantes();
   }
 
   async function replaceCarpetaVacantes(files) {
@@ -504,20 +549,25 @@
 
     if (!await UI.confirm(`¿Reemplazar todas las ofertas con ${images.length} imágenes?\nEsta acción elimina las ofertas actuales.`)) return;
 
-    UI.setStatus('vacantes-status', 'loading', `Subiendo ${images.length} imagen(es)...`);
-    const fd = new FormData();
-    images.forEach(f => fd.append('imagenes', f));
-
-    const res = await apiRequest(`/soloofertas/${state.region}/vacantes/replace-all`, { method: 'POST', body: fd });
-    if (!res) return;
-
-    if (res.ok) {
-      const d = await res.json();
-      UI.setStatus('vacantes-status', 'ok', `${d.total} oferta(s) reemplazadas.`);
+    const keys = [];
+    try {
+      for (let i = 0; i < images.length; i++) {
+        UI.setStatus('vacantes-status', 'loading', `Subiendo ${i + 1} de ${images.length}...`);
+        keys.push(await uploadToR2(images[i], 'vacantes'));
+      }
+      UI.setStatus('vacantes-status', 'loading', 'Publicando ofertas...');
+      const res = await apiRequest(`/soloofertas/${state.region}/vacantes/replace-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys }),
+      });
+      const data = await res?.json().catch(() => ({}));
+      if (!res?.ok) throw new Error(data?.error || 'Error al reemplazar');
+      UI.setStatus('vacantes-status', 'ok', `${data.total} oferta(s) reemplazadas.`);
       await loadVacantes();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      UI.setStatus('vacantes-status', 'error', d.error || 'Error al reemplazar');
+    } catch (err) {
+      await cleanupR2(keys);
+      UI.setStatus('vacantes-status', 'error', err.message || 'Error al reemplazar');
     }
   }
 
@@ -600,7 +650,7 @@
 
     grid.innerHTML = state.cupones.map(cupon => `
       <div class="admin-vacante-item admin-cupon-item" data-id="${escapeAttr(cupon.id)}" draggable="true">
-        <img src="${mediaUrl('gdl', 'cupones', cupon.url)}" alt="Cupón" loading="lazy"
+        <img src="${mediaUrl('gdl', 'cupones', cupon)}" alt="Cupón" loading="lazy"
              style="transform:rotate(${Number(cupon.rotation) || 0}deg)" onerror="this.onerror=null;this.style.opacity='.3'">
         <span class="cupon-drag-handle" title="Arrastrar" aria-hidden="true">⠿</span>
         <button class="btn-rotate-cupon" data-id="${escapeAttr(cupon.id)}" type="button" title="Rotar 90°">↻</button>
@@ -625,20 +675,26 @@
 
   async function uploadCupones(files) {
     const images = sortedImages(files);
-    for (let i = 0; i < images.length; i++) {
-      UI.setStatus('cupones-status', 'loading', `Subiendo ${i + 1} de ${images.length}...`);
-      const fd = new FormData();
-      fd.append('imagen', images[i]);
-      const res = await apiRequest('/soloofertas/gdl/cupones', { method: 'POST', body: fd });
-      if (!res) return;
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        UI.setStatus('cupones-status', 'error', data.error || 'Error al subir');
-        return;
+    try {
+      for (let i = 0; i < images.length; i++) {
+        UI.setStatus('cupones-status', 'loading', `Subiendo ${i + 1} de ${images.length}...`);
+        const key = await uploadToR2(images[i], 'cupones', 'gdl');
+        const res = await apiRequest('/soloofertas/gdl/cupones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key }),
+        });
+        const data = await res?.json().catch(() => ({}));
+        if (!res?.ok) {
+          await cleanupR2([key], 'gdl');
+          throw new Error(data?.error || 'Error al publicar');
+        }
       }
+      UI.setStatus('cupones-status', 'ok', `${images.length} cupón(es) subido(s).`);
+      await loadCupones();
+    } catch (err) {
+      UI.setStatus('cupones-status', 'error', err.message || 'Error al subir');
     }
-    UI.setStatus('cupones-status', 'ok', `${images.length} cupón(es) subido(s).`);
-    await loadCupones();
   }
 
   async function replaceCarpetaCupones(files) {
@@ -649,17 +705,24 @@
     }
     if (!await UI.confirm(`¿Reemplazar todos los cupones con ${images.length} imágenes?\nEsta acción elimina los cupones actuales.`)) return;
 
-    UI.setStatus('cupones-status', 'loading', `Subiendo ${images.length} imagen(es)...`);
-    const fd = new FormData();
-    images.forEach(file => fd.append('imagenes', file));
-    const res = await apiRequest('/soloofertas/gdl/cupones/replace-all', { method: 'POST', body: fd });
-    if (!res) return;
-    const data = await res.json().catch(() => ({}));
-    if (res.ok) {
+    const keys = [];
+    try {
+      for (let i = 0; i < images.length; i++) {
+        UI.setStatus('cupones-status', 'loading', `Subiendo ${i + 1} de ${images.length}...`);
+        keys.push(await uploadToR2(images[i], 'cupones', 'gdl'));
+      }
+      const res = await apiRequest('/soloofertas/gdl/cupones/replace-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys }),
+      });
+      const data = await res?.json().catch(() => ({}));
+      if (!res?.ok) throw new Error(data?.error || 'Error al reemplazar');
       UI.setStatus('cupones-status', 'ok', `${data.total} cupón(es) reemplazado(s).`);
       await loadCupones();
-    } else {
-      UI.setStatus('cupones-status', 'error', data.error || 'Error al reemplazar');
+    } catch (err) {
+      await cleanupR2(keys, 'gdl');
+      UI.setStatus('cupones-status', 'error', err.message || 'Error al reemplazar');
     }
   }
 

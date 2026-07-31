@@ -15,7 +15,10 @@ const {
 } = require('./content-paths');
 const { readJson, readJsonArray } = require('./content-store');
 const { maintenanceOperation } = require('./maintenance-state');
+const { createR2Storage, parseMediaKey } = require('./services/r2-storage');
 const site = require('./site-config');
+
+const mediaStorage = createR2Storage();
 
 const INSTANCE_ID = randomUUID();
 const STARTED_AT = new Date().toISOString();
@@ -194,14 +197,30 @@ app.use(['/soloofertas/gdl', '/soloofertas/mty', '/soloofertas/backup'], (req, r
 
 function validateContentHealth() {
   assertContentConfigured();
+  if (mediaStorage.enabled) mediaStorage.assertConfigured();
+
+  function assertRemoteMedia(item, region, type) {
+    if (!mediaStorage.enabled) return;
+    if (item?.media?.provider !== 'r2') throw new TypeError(`Imagen local pendiente en ${region}/${type}`);
+    const parsed = parseMediaKey(item.media.key);
+    if (parsed.region !== region || parsed.type !== type) {
+      throw new TypeError(`Clave R2 invalida en ${region}/${type}`);
+    }
+  }
+
   for (const region of REGIONS) {
     const portada = readJson(dataPath(region, 'portada.json'));
     if (!portada || typeof portada.url !== 'string' || !portada.url) {
       throw new TypeError(`portada.json invalido para ${region}`);
     }
-    readJsonArray(dataPath(region, 'vacantes.json'));
+    assertRemoteMedia(portada, region, 'portadas');
+    for (const item of readJsonArray(dataPath(region, 'vacantes.json'))) {
+      assertRemoteMedia(item, region, 'vacantes');
+    }
   }
-  readJsonArray(dataPath('gdl', 'cupones.json'));
+  for (const item of readJsonArray(dataPath('gdl', 'cupones.json'))) {
+    assertRemoteMedia(item, 'gdl', 'cupones');
+  }
 }
 
 function livenessResponse() {
@@ -413,16 +432,42 @@ function injectFragments(html, region, activePage) {
     );
 }
 
-function optimizedMediaUrl(region, type, rawUrl, preset) {
-  const filename = encodeURIComponent(path.basename(String(rawUrl || '')));
-  return filename ? `/media/${region}/${type}/${filename}?preset=${preset}` : '/shared/img/placeholder.svg';
+function safeHttpsUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'https:' ? url.href : '';
+  } catch (_) {
+    return '';
+  }
 }
 
-function responsiveImageAttrs(region, type, rawUrl) {
-  const smallUrl = optimizedMediaUrl(region, type, rawUrl, 'small');
-  const thumbUrl = optimizedMediaUrl(region, type, rawUrl, 'thumb');
+function optimizedMediaUrl(region, type, item, preset) {
+  const remotePreset = safeHttpsUrl(item?.media?.urls?.[preset]);
+  if (remotePreset) return remotePreset;
+  const rawUrl = typeof item === 'object' ? item?.url : item;
+  const remoteFallback = safeHttpsUrl(rawUrl);
+  if (remoteFallback) return remoteFallback;
+  const filename = encodeURIComponent(path.basename(String(rawUrl || '')));
+  return filename ? `/${region}/uploads/${type}/${filename}` : '/shared/img/placeholder.svg';
+}
+
+function responsiveImageAttrs(region, type, item) {
+  const smallUrl = optimizedMediaUrl(region, type, item, 'small');
+  const thumbUrl = optimizedMediaUrl(region, type, item, 'thumb');
   return ` srcset="${escapeHtml(smallUrl)} 360w, ${escapeHtml(thumbUrl)} 640w"` +
     ` sizes="(max-width: 600px) calc(100vw - 2rem), (max-width: 900px) calc(50vw - 2rem), 390px"`;
+}
+
+function storedImageDimensionAttrs(item, filePath) {
+  const width = Number(item?.media?.width);
+  const height = Number(item?.media?.height);
+  return Number.isInteger(width) && width > 0 && Number.isInteger(height) && height > 0
+    ? ` width="${width}" height="${height}"`
+    : imageDimensionAttrs(filePath);
+}
+
+function absoluteMediaUrl(value) {
+  return safeHttpsUrl(value) || `${site.publicOrigin}${value}`;
 }
 
 function renderVacantes(region) {
@@ -455,8 +500,8 @@ function renderVacantes(region) {
       : '';
     const whatsappUrl = waHref(v.telefono);
     const sourcePath = uploadsPath(region, 'vacantes', filename);
-    const thumbUrl = optimizedMediaUrl(region, 'vacantes', v.url, 'thumb');
-    const fullUrl = optimizedMediaUrl(region, 'vacantes', v.url, 'full');
+    const thumbUrl = optimizedMediaUrl(region, 'vacantes', v, 'thumb');
+    const fullUrl = optimizedMediaUrl(region, 'vacantes', v, 'full');
     const regionName = region === 'gdl' ? 'Guadalajara' : 'Monterrey';
     const contact = whatsappUrl
       ? `<a class="vacante-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener" aria-label="Contactanos por WhatsApp" data-tooltip="Contactanos">` +
@@ -464,7 +509,7 @@ function renderVacantes(region) {
         `</a>`
       : '';
     const loadAttrs = index === 0 ? ' fetchpriority="high"' : ' loading="lazy" fetchpriority="low"';
-    const image = `<img src="${esc(thumbUrl)}"${responsiveImageAttrs(region, 'vacantes', v.url)} data-full-src="${esc(fullUrl)}" alt="Oferta en ${regionName}"${imageDimensionAttrs(sourcePath)}${loadAttrs} decoding="async"${rot} ` +
+    const image = `<img src="${esc(thumbUrl)}"${responsiveImageAttrs(region, 'vacantes', v)} data-full-src="${esc(fullUrl)}" alt="Oferta en ${regionName}"${storedImageDimensionAttrs(v, sourcePath)}${loadAttrs} decoding="async"${rot} ` +
       `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">`;
     const visual = `<button type="button" class="vacante-modal-trigger" aria-label="Ampliar oferta ${esc(v.id)} en ${regionName}">${image}</button>`;
     return `<div class="vacante-item">` +
@@ -506,10 +551,10 @@ function renderCupones() {
       ? ` style="transform:rotate(${rotation}deg)"`
       : '';
     const sourcePath = uploadsPath('gdl', 'cupones', filename);
-    const thumbUrl = optimizedMediaUrl('gdl', 'cupones', item.url, 'thumb');
-    const fullUrl = optimizedMediaUrl('gdl', 'cupones', item.url, 'full');
+    const thumbUrl = optimizedMediaUrl('gdl', 'cupones', item, 'thumb');
+    const fullUrl = optimizedMediaUrl('gdl', 'cupones', item, 'full');
     return `<div class="vacante-item" data-cupon>` +
-      `<img src="${esc(thumbUrl)}" data-full-src="${esc(fullUrl)}" alt="Cupón en Guadalajara"${imageDimensionAttrs(sourcePath)} loading="lazy" decoding="async"${rot} ` +
+      `<img src="${esc(thumbUrl)}" data-full-src="${esc(fullUrl)}" alt="Cupón en Guadalajara"${storedImageDimensionAttrs(item, sourcePath)} loading="lazy" decoding="async"${rot} ` +
       `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">` +
     `</div>`;
   }).join('');
@@ -523,14 +568,17 @@ function injectCupones(html, region) {
 function renderPortada(region) {
   const file = dataPath(region, 'portada.json');
   try {
-    const { url, version } = readJson(file);
-    if (!url) return { url: '/shared/img/placeholder.svg', poster: '/shared/img/logo-ofertas.png', width: 400, height: 300 };
-    const sourcePath = uploadsPath(region, 'portadas', path.basename(url));
-    const dimensions = readImageDimensions(sourcePath) || { width: 720, height: 900 };
-    const cacheVersion = encodeURIComponent(version || path.basename(url));
+    const portada = readJson(file);
+    if (!portada.url) return { url: '/shared/img/placeholder.svg', poster: '/shared/img/logo-ofertas.png', width: 400, height: 300 };
+    const sourcePath = uploadsPath(region, 'portadas', path.basename(portada.url));
+    const storedWidth = Number(portada.media?.width);
+    const storedHeight = Number(portada.media?.height);
+    const dimensions = Number.isInteger(storedWidth) && storedWidth > 0 && Number.isInteger(storedHeight) && storedHeight > 0
+      ? { width: storedWidth, height: storedHeight }
+      : readImageDimensions(sourcePath) || { width: 720, height: 900 };
     return {
-      url: `${optimizedMediaUrl(region, 'portadas', url, 'cover')}&v=${cacheVersion}`,
-      poster: `${optimizedMediaUrl(region, 'portadas', url, 'hero')}&v=${cacheVersion}`,
+      url: optimizedMediaUrl(region, 'portadas', portada, 'cover'),
+      poster: optimizedMediaUrl(region, 'portadas', portada, 'hero'),
       width: dimensions.width,
       height: dimensions.height,
     };
@@ -583,9 +631,9 @@ function renderOfferPage(region, offer) {
   const description = `Consulta la oferta ${offerId} publicada en ${regionName} en Solo Ofertas.`;
   const filename = path.basename(String(offer.url || ''));
   const sourcePath = uploadsPath(region, 'vacantes', filename);
-  const thumbUrl = optimizedMediaUrl(region, 'vacantes', offer.url, 'thumb');
-  const fullUrl = optimizedMediaUrl(region, 'vacantes', offer.url, 'full');
-  const fullAbsoluteUrl = `${site.publicOrigin}${fullUrl}`;
+  const thumbUrl = optimizedMediaUrl(region, 'vacantes', offer, 'thumb');
+  const fullUrl = optimizedMediaUrl(region, 'vacantes', offer, 'full');
+  const fullAbsoluteUrl = absoluteMediaUrl(fullUrl);
   const published = validDateOnly(offer.fecha);
   const publishedLabel = formatOfferDate(offer.fecha);
   const rotation = Number(offer.rotation);
@@ -600,7 +648,7 @@ function renderOfferPage(region, offer) {
   const contactMarkup = digits
     ? `<a class="oferta-contact" href="https://wa.me/${escapeHtml(digits)}" target="_blank" rel="noopener">Contactar por WhatsApp</a>`
     : '';
-  const dimensions = imageDimensionAttrs(sourcePath);
+  const dimensions = storedImageDimensionAttrs(offer, sourcePath);
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -646,7 +694,7 @@ function renderOfferPage(region, offer) {
     '__CITY_PATH__': `/${region}/inicio/`,
     '__IMAGE_ABSOLUTE_URL__': fullAbsoluteUrl,
     '__IMAGE_SRC__': thumbUrl,
-    '__IMAGE_SRCSET__': `${optimizedMediaUrl(region, 'vacantes', offer.url, 'small')} 360w, ${thumbUrl} 640w, ${fullUrl} 1200w`,
+    '__IMAGE_SRCSET__': `${optimizedMediaUrl(region, 'vacantes', offer, 'small')} 360w, ${thumbUrl} 640w, ${fullUrl} 1200w`,
     '__IMAGE_DIMENSIONS__': dimensions,
     '__IMAGE_ROTATION__': rotationStyle,
     '__DATE_MARKUP__': dateMarkup,
@@ -752,20 +800,23 @@ for (const region of REGIONS) {
     path.dirname(dataPath(region, 'placeholder.json')),
     { setHeaders: setDataHeaders }
   ));
-  app.use(`/${region}/uploads/vacantes`, express.static(
-    uploadsPath(region, 'vacantes'),
-    { setHeaders: setUploadHeaders }
-  ));
-  app.use(`/${region}/uploads/portadas`, express.static(
-    uploadsPath(region, 'portadas'),
+  if (!mediaStorage.enabled) {
+    app.use(`/${region}/uploads/vacantes`, express.static(
+      uploadsPath(region, 'vacantes'),
+      { setHeaders: setUploadHeaders }
+    ));
+    app.use(`/${region}/uploads/portadas`, express.static(
+      uploadsPath(region, 'portadas'),
+      { setHeaders: setUploadHeaders }
+    ));
+  }
+}
+if (!mediaStorage.enabled) {
+  app.use('/gdl/uploads/cupones', express.static(
+    uploadsPath('gdl', 'cupones'),
     { setHeaders: setUploadHeaders }
   ));
 }
-app.use('/gdl/uploads/cupones', express.static(
-  uploadsPath('gdl', 'cupones'),
-  { setHeaders: setUploadHeaders }
-));
-app.use(require('./routes/media'));
 app.use('/shared/img', express.static(path.join(PAGES_DIR, 'shared', 'img'), {
   setHeaders: (res, filePath) => {
     if (path.extname(filePath).toLowerCase() === '.mp4') {
@@ -783,11 +834,12 @@ app.use(express.static(PAGES_DIR, { setHeaders: setPageAssetHeaders }));
 
 // Routes
 app.use('/soloofertas/auth', require('./routes/auth'));
-app.use('/soloofertas/gdl', require('./routes/portada')('gdl'));
-app.use('/soloofertas/mty', require('./routes/portada')('mty'));
-app.use('/soloofertas/gdl', require('./routes/vacantes')('gdl'));
-app.use('/soloofertas/mty', require('./routes/vacantes')('mty'));
-app.use('/soloofertas/gdl', require('./routes/cupones')('gdl'));
+for (const region of REGIONS) {
+  app.use(`/soloofertas/${region}`, require('./routes/uploads')(region, { storage: mediaStorage }));
+  app.use(`/soloofertas/${region}`, require('./routes/portada')(region, { storage: mediaStorage }));
+  app.use(`/soloofertas/${region}`, require('./routes/vacantes')(region, { storage: mediaStorage }));
+}
+app.use('/soloofertas/gdl', require('./routes/cupones')('gdl', { storage: mediaStorage }));
 app.use('/soloofertas/contacto', require('./routes/contacto'));
 app.use('/soloofertas', require('./routes/backup'));
 

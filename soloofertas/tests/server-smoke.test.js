@@ -96,13 +96,14 @@ async function run() {
     assert(html.includes('src="/shared/img/hero-gdl.mp4"'));
     assert(!html.includes('class="region-info"'));
     assert(!html.includes('Promociones locales en un solo lugar'));
-    assert(html.includes('poster="/media/gdl/portadas/'));
+    assert(html.includes('poster="/gdl/uploads/portadas/'));
     assert(html.includes('autoplay muted loop playsinline preload="metadata"'));
     assert(html.includes('<link rel="canonical" href="https://soloofertas.com/gdl/inicio/">'));
     assert(html.includes('class="vacante-modal-trigger"'));
     assert(!html.includes('class="vacante-detail-link"'));
     assert(!html.includes(`href="${firstGdlOfferPath}"`));
-    assert(html.includes('?preset=small 360w'));
+    assert(html.includes('/gdl/uploads/vacantes/'));
+    assert(!html.includes('/media/gdl/'));
     assert(html.includes('fetchpriority="high"'));
     assert(html.includes('id="offers-structured-data"'));
     assert(html.includes('"@type":"ItemList"'));
@@ -157,7 +158,7 @@ async function run() {
     assert(offerHtml.includes('<h1>Oferta en Guadalajara</h1>'));
     assert(offerHtml.includes('"@type":"ImageObject"'));
     assert(offerHtml.includes('"@type":"BreadcrumbList"'));
-    assert(offerHtml.includes('?preset=full'));
+    assert(offerHtml.includes(firstGdlOffer.url));
     assert(!offerHtml.includes('__IMAGE_'));
 
     const offerCanonicalResponse = await fetch(
@@ -194,10 +195,10 @@ async function run() {
     assert(adminHtml.includes('id="section-cupones" data-feature-coupons hidden'));
     assert(adminHtml.includes('data-admin-section="portada"'));
     assert(adminHtml.includes('id="btn-backup"'));
-    assert(adminHtml.includes('/admin/js/admin.js?v=20260728'));
+    assert(adminHtml.includes('/admin/js/admin.js?v=20260731-r2'));
     assert.equal(adminResponse.headers.get('x-robots-tag'), 'noindex, nofollow');
 
-    const adminJsResponse = await fetch(`http://127.0.0.1:${port}/admin/js/admin.js?v=20260728`);
+    const adminJsResponse = await fetch(`http://127.0.0.1:${port}/admin/js/admin.js?v=20260731-r2`);
     assert.equal(adminJsResponse.status, 200);
     assert((await adminJsResponse.text()).includes('role="menuitem">Rotar 90&deg;'));
 

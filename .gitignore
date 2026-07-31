@@ -1,6 +1,8 @@
 node_modules/
 soloofertas/.env
 soloofertas/storage/
+soloofertas/cloudflare/image-worker/.wrangler/
+soloofertas/cloudflare/image-worker/.dev.vars
 *.log
 .DS_Store
 Thumbs.db

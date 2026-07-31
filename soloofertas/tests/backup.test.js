@@ -4,20 +4,24 @@ const os = require('os');
 const path = require('path');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const sharp = require('sharp');
 const unzipper = require('unzipper');
 const { PassThrough } = require('stream');
+const { TYPE_PRESETS } = require('../services/r2-storage');
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'soloofertas-backup-'));
 process.env.CONTENT_DIR = tempDir;
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret-with-at-least-32-characters';
 
-async function makeImage(filePath, color) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  await sharp({ create: { width: 20, height: 30, channels: 3, background: color } })
-    .jpeg()
-    .toFile(filePath);
+function remoteItem(region, type, filename, extra = {}) {
+  const key = `${region}/${type}/${filename}`;
+  const base = 'https://soloofertas-images.example.workers.dev';
+  const urls = Object.fromEntries(TYPE_PRESETS[type].map(preset => [preset, `${base}/${preset}/${key}`]));
+  return {
+    ...extra,
+    url: urls[type === 'portadas' ? 'cover' : 'full'],
+    media: { provider: 'r2', key, urls },
+  };
 }
 
 async function makeZip(entries) {
@@ -41,21 +45,16 @@ async function seedContent() {
   for (const region of ['gdl', 'mty']) {
     const dataDir = path.join(tempDir, region, 'data');
     fs.mkdirSync(dataDir, { recursive: true });
-    await makeImage(path.join(tempDir, region, 'uploads', 'portadas', 'cover.jpg'), '#1957c4');
-    await makeImage(path.join(tempDir, region, 'uploads', 'vacantes', 'offer.jpg'), '#16a34a');
-    fs.writeFileSync(path.join(dataDir, 'portada.json'), JSON.stringify({
-      url: `/${region}/uploads/portadas/cover.jpg`, version: 'one',
-    }));
-    fs.writeFileSync(path.join(dataDir, 'vacantes.json'), JSON.stringify([{
-      id: `${region}-original`, url: `/${region}/uploads/vacantes/offer.jpg`, rotation: 0, telefono: '',
-    }]));
+    fs.writeFileSync(path.join(dataDir, 'portada.json'), JSON.stringify(
+      remoteItem(region, 'portadas', 'cover.jpg', { version: 'one' })
+    ));
+    fs.writeFileSync(path.join(dataDir, 'vacantes.json'), JSON.stringify([
+      remoteItem(region, 'vacantes', 'offer.jpg', { id: `${region}-original`, rotation: 0, telefono: '' }),
+    ]));
   }
-  await makeImage(path.join(tempDir, 'gdl', 'uploads', 'cupones', 'coupon.jpg'), '#f4b400');
-  fs.mkdirSync(path.join(tempDir, 'gdl', 'uploads', 'vacantes', '.cache'), { recursive: true });
-  fs.writeFileSync(path.join(tempDir, 'gdl', 'uploads', 'vacantes', '.cache', 'ignored.webp'), 'cache');
-  fs.writeFileSync(path.join(tempDir, 'gdl', 'data', 'cupones.json'), JSON.stringify([{
-    id: 'coupon-original', url: '/gdl/uploads/cupones/coupon.jpg', rotation: 0,
-  }]));
+  fs.writeFileSync(path.join(tempDir, 'gdl', 'data', 'cupones.json'), JSON.stringify([
+    remoteItem('gdl', 'cupones', 'coupon.jpg', { id: 'coupon-original', rotation: 0 }),
+  ]));
 }
 
 async function run() {
@@ -78,7 +77,7 @@ async function run() {
     const zip = Buffer.from(await download.arrayBuffer());
     assert(zip.length > 100);
     const archive = await unzipper.Open.buffer(zip);
-    assert(!archive.files.some(entry => entry.path.includes('/.cache/')));
+    assert(!archive.files.some(entry => entry.path.includes('/uploads/')));
 
     const invalidForm = new FormData();
     invalidForm.append('backup', new Blob([Buffer.from('not-a-zip')], { type: 'application/zip' }), 'invalid.zip');
@@ -98,9 +97,9 @@ async function run() {
     assert((await forbidden.json()).error.includes('Ruta no permitida'));
 
     const currentVacantes = path.join(tempDir, 'gdl', 'data', 'vacantes.json');
-    fs.writeFileSync(currentVacantes, JSON.stringify([{
-      id: 'mutated', url: '/gdl/uploads/vacantes/offer.jpg', rotation: 0, telefono: '',
-    }]));
+    fs.writeFileSync(currentVacantes, JSON.stringify([
+      remoteItem('gdl', 'vacantes', 'mutated.jpg', { id: 'mutated', rotation: 0, telefono: '' }),
+    ]));
 
     const form = new FormData();
     form.append('backup', new Blob([zip], { type: 'application/zip' }), 'backup.zip');
