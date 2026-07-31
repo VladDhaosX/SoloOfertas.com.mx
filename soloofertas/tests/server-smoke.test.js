@@ -94,9 +94,8 @@ async function run() {
     assert(!html.includes('data-cupon'));
     assert(!html.includes('href="/gdl/cupones/"'));
     assert(html.includes('src="/shared/img/hero-gdl.mp4"'));
-    assert(html.includes('Promociones locales en un solo lugar'));
-    assert(html.includes('href="/gdl/guia-ofertas/">Consulta la guía de ofertas</a>'));
-    assert(html.includes('href="/gdl/contacto/">Publica tu oferta</a>'));
+    assert(!html.includes('class="region-info"'));
+    assert(!html.includes('Promociones locales en un solo lugar'));
     assert(html.includes('poster="/media/gdl/portadas/'));
     assert(html.includes('autoplay muted loop playsinline preload="metadata"'));
     assert(html.includes('<link rel="canonical" href="https://soloofertas.com/gdl/inicio/">'));
@@ -117,7 +116,8 @@ async function run() {
     const mtyHtml = await mtyResponse.text();
     assert(mtyHtml.includes('src="/shared/img/hero-mty.mp4"'));
     assert(mtyHtml.includes('<h2 class="vacantes-title">Ofertas en Monterrey</h2>'));
-    assert(mtyHtml.includes('href="/mty/contacto/">Publica tu oferta</a>'));
+    assert(!mtyHtml.includes('class="region-info"'));
+    assert(!mtyHtml.includes('Promociones locales en un solo lugar'));
     assert(mtyHtml.includes('href="/mty/contacto/"'));
     assert(mtyHtml.includes('href="https://soloempleos.com.mx/mty/inicio/"'));
     assert(!mtyHtml.includes('hero-destacado.mp4'));
