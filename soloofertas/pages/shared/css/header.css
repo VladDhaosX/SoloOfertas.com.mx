@@ -45,7 +45,7 @@
 }
 
 .header-regions a.active {
-  background: #4aa3ff;
+  background: #1769aa;
   color: #ffffff;
 }
 
@@ -77,7 +77,7 @@
 }
 
 .header-nav a.active {
-  background: #4aa3ff;
+  background: #1769aa;
   color: #ffffff;
 }
 
@@ -104,7 +104,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  background: #168a45;
+  background: #13783c;
   text-transform: none;
 }
 

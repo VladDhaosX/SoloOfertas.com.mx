@@ -82,7 +82,6 @@ async function run() {
     const response = await waitForServer(`http://127.0.0.1:${port}/gdl/inicio/`, child, stderr);
     const html = await response.text();
     const gdlOffers = JSON.parse(fs.readFileSync(path.join(tempDir, 'gdl', 'data', 'vacantes.json'), 'utf8'));
-    const mtyOffers = JSON.parse(fs.readFileSync(path.join(tempDir, 'mty', 'data', 'vacantes.json'), 'utf8'));
     const firstGdlOffer = gdlOffers[0];
     const firstGdlOfferPath = `/gdl/ofertas/${firstGdlOffer.id}/`;
     assert(html.includes('id="site-header"'));
@@ -91,11 +90,15 @@ async function run() {
     assert(!html.includes('data-cupon'));
     assert(!html.includes('href="/gdl/cupones/"'));
     assert(html.includes('src="/shared/img/hero-gdl.mp4"'));
+    assert(html.includes('Promociones locales en un solo lugar'));
+    assert(html.includes('href="/gdl/guia-ofertas/">Consulta la guía de ofertas</a>'));
+    assert(html.includes('href="/gdl/contacto/">Publica tu oferta</a>'));
     assert(html.includes('poster="/media/gdl/portadas/'));
     assert(html.includes('autoplay muted loop playsinline preload="metadata"'));
     assert(html.includes('<link rel="canonical" href="https://soloofertas.com/gdl/inicio/">'));
     assert(html.includes(`href="${firstGdlOfferPath}"`));
     assert(html.includes('?preset=small 360w'));
+    assert(html.includes('fetchpriority="high"'));
     assert(html.includes('id="offers-structured-data"'));
     assert(html.includes('"@type":"ItemList"'));
     assert(html.includes('href="https://soloempleos.com.mx/gdl/inicio/"'));
@@ -107,15 +110,42 @@ async function run() {
     const mtyResponse = await fetch(`http://127.0.0.1:${port}/mty/inicio/`);
     const mtyHtml = await mtyResponse.text();
     assert(mtyHtml.includes('src="/shared/img/hero-mty.mp4"'));
+    assert(mtyHtml.includes('<h2 class="vacantes-title">Ofertas en Monterrey</h2>'));
+    assert(mtyHtml.includes('href="/mty/contacto/">Publica tu oferta</a>'));
     assert(mtyHtml.includes('href="/mty/contacto/"'));
     assert(mtyHtml.includes('href="https://soloempleos.com.mx/mty/inicio/"'));
     assert(!mtyHtml.includes('hero-destacado.mp4'));
     assert(!mtyHtml.includes('hero-carousel-controls'));
     assert.equal((mtyHtml.match(/class="hero-video/g) || []).length, 1);
 
+    const gdlGuideResponse = await fetch(`http://127.0.0.1:${port}/gdl/guia-ofertas/`);
+    const gdlGuideHtml = await gdlGuideResponse.text();
+    assert.equal(gdlGuideResponse.status, 200);
+    assert(gdlGuideHtml.includes('<link rel="canonical" href="https://soloofertas.com/gdl/guia-ofertas/">'));
+    assert(gdlGuideHtml.includes('Ofertas en Guadalajara: guía para encontrar promociones locales'));
+    assert(gdlGuideHtml.includes('"@type": "FAQPage"'));
+    assert(gdlGuideHtml.includes('href="/gdl/guia-ofertas/"'));
+    assert(!gdlGuideHtml.includes('name="robots" content="noindex'));
+
+    const mtyGuideResponse = await fetch(`http://127.0.0.1:${port}/mty/guia-ofertas/`);
+    const mtyGuideHtml = await mtyGuideResponse.text();
+    assert.equal(mtyGuideResponse.status, 200);
+    assert(mtyGuideHtml.includes('<link rel="canonical" href="https://soloofertas.com/mty/guia-ofertas/">'));
+    assert(mtyGuideHtml.includes('Ofertas en Monterrey: guía para encontrar promociones locales'));
+    assert(mtyGuideHtml.includes('href="/mty/guia-ofertas/"'));
+
+    const guideCanonicalResponse = await fetch(
+      `http://127.0.0.1:${port}/GDL/guia-ofertas/index.html`,
+      { redirect: 'manual' }
+    );
+    assert.equal(guideCanonicalResponse.status, 301);
+    assert.equal(guideCanonicalResponse.headers.get('location'), '/gdl/guia-ofertas/');
+
     const offerResponse = await fetch(`http://127.0.0.1:${port}${firstGdlOfferPath}`);
     const offerHtml = await offerResponse.text();
     assert.equal(offerResponse.status, 200);
+    assert.equal(offerResponse.headers.get('x-robots-tag'), 'noindex, follow');
+    assert(offerHtml.includes('<meta name="robots" content="noindex, follow">'));
     assert(offerHtml.includes(`<link rel="canonical" href="https://soloofertas.com${firstGdlOfferPath}">`));
     assert(offerHtml.includes('<h1>Oferta en Guadalajara</h1>'));
     assert(offerHtml.includes('"@type":"ImageObject"'));
@@ -130,12 +160,24 @@ async function run() {
     assert.equal(offerCanonicalResponse.status, 301);
     assert.equal(offerCanonicalResponse.headers.get('location'), firstGdlOfferPath);
 
-    const missingOfferResponse = await fetch(`http://127.0.0.1:${port}/gdl/ofertas/no-existe/`);
+    const missingOfferResponse = await fetch(`http://127.0.0.1:${port}/gdl/ofertas/9999999999999/`);
     assert.equal(missingOfferResponse.status, 404);
     assert.equal(missingOfferResponse.headers.get('x-robots-tag'), 'noindex, nofollow');
 
+    const oldGdlResponse = await fetch(`http://127.0.0.1:${port}/ofertas-gdl/`, { redirect: 'manual' });
+    assert.equal(oldGdlResponse.status, 301);
+    assert.equal(oldGdlResponse.headers.get('location'), '/gdl/inicio/');
+    const oldMtyContactResponse = await fetch(
+      `http://127.0.0.1:${port}/ofertas-mty/directorio.php`,
+      { redirect: 'manual' }
+    );
+    assert.equal(oldMtyContactResponse.status, 301);
+    assert.equal(oldMtyContactResponse.headers.get('location'), '/mty/contacto/');
+    assert.equal((await fetch(`http://127.0.0.1:${port}/gdl/consumidor/`)).status, 410);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/gdl/ofertas/ofertas5/`)).status, 410);
+
     const cuponesResponse = await fetch(`http://127.0.0.1:${port}/gdl/cupones/`, { redirect: 'manual' });
-    assert.equal(cuponesResponse.status, 302);
+    assert.equal(cuponesResponse.status, 301);
     assert.equal(cuponesResponse.headers.get('location'), '/gdl/inicio/');
     assert.equal((await fetch(`http://127.0.0.1:${port}/gdl/data/cupones.json`)).status, 404);
     assert.equal((await fetch(`http://127.0.0.1:${port}/gdl/uploads/cupones/001-adiestramiento-canino.png`)).status, 404);
@@ -162,6 +204,10 @@ async function run() {
       heroVideoResponse.headers.get('cache-control'),
       'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400'
     );
+
+    const inicioJs = await (await fetch(`http://127.0.0.1:${port}/shared/js/inicio.js`)).text();
+    assert(inicioJs.includes("navigator.connection && navigator.connection.saveData"));
+    assert(inicioJs.includes("prefers-reduced-motion: reduce"));
 
     const scannerPaths = [
       '/wp-admin/install.php?step=1',
@@ -206,11 +252,16 @@ async function run() {
     const sitemap = await sitemapResponse.text();
     assert.equal(sitemapResponse.status, 200);
     assert(sitemap.includes('https://soloofertas.com/gdl/inicio/'));
-    assert(sitemap.includes('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"'));
-    assert(sitemap.includes(`https://soloofertas.com${firstGdlOfferPath}`));
-    assert(sitemap.includes('<image:image>'));
-    assert.equal((sitemap.match(/<url>/g) || []).length, 5 + gdlOffers.length + mtyOffers.length);
+    assert(sitemap.includes('https://soloofertas.com/gdl/guia-ofertas/'));
+    assert(sitemap.includes('https://soloofertas.com/mty/guia-ofertas/'));
+    assert(!sitemap.includes('xmlns:image='));
+    assert(!sitemap.includes('/ofertas/'));
+    assert(!sitemap.includes('<image:image>'));
+    assert.equal((sitemap.match(/<url>/g) || []).length, 7);
     assert(!sitemap.includes('/cupones/'));
+
+    const landingHtml = await (await fetch(`http://127.0.0.1:${port}/`)).text();
+    assert(landingHtml.includes('Ofertas locales en Guadalajara y Monterrey'));
 
     const robotsResponse = await fetch(`http://127.0.0.1:${port}/robots.txt`);
     assert.equal(robotsResponse.status, 200);

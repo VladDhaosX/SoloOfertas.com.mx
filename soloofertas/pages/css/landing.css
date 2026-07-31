@@ -94,6 +94,24 @@ body {
   font-size: 0.9rem;
 }
 
+.landing-intro {
+  padding: 3rem 1.5rem 4rem;
+  text-align: center;
+  background: #f5f6f8;
+}
+
+.landing-intro h2 {
+  margin: 0 0 0.8rem;
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
+}
+
+.landing-intro p {
+  max-width: 760px;
+  margin: 0 auto;
+  color: #4b4d51;
+  line-height: 1.7;
+}
+
 @media (max-width: 767px) {
   .landing-cities {
     grid-template-columns: 1fr;

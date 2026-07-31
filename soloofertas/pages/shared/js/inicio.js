@@ -23,6 +23,20 @@
     `;
   }
 
+  function respectDataPreferences() {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const saveData = Boolean(navigator.connection && navigator.connection.saveData);
+    if (!reduceMotion && !saveData) return;
+
+    document.querySelectorAll('.hero-video').forEach(video => {
+      video.pause();
+      video.removeAttribute('autoplay');
+      video.preload = 'none';
+      video.querySelectorAll('source').forEach(source => source.removeAttribute('src'));
+      video.load();
+    });
+  }
+
   function initHeroCarousel() {
     const carousel = document.querySelector('[data-hero-carousel]');
     if (!carousel) return;
@@ -202,6 +216,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    respectDataPreferences();
     initHeroCarousel();
     cargarVacantes();
     initModal();
