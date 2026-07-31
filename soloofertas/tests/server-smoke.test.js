@@ -64,6 +64,10 @@ async function run() {
         { recursive: true }
       );
     }
+    const mtyDataFile = path.join(tempDir, 'mty', 'data', 'vacantes.json');
+    const mtyFixture = JSON.parse(fs.readFileSync(mtyDataFile, 'utf8'));
+    mtyFixture[0].id = 'd7710299-e44d-46c6-bfea-b2335dd3caa8';
+    fs.writeFileSync(mtyDataFile, JSON.stringify(mtyFixture, null, 2));
 
     const port = await reservePort();
     const stderr = [];
@@ -117,6 +121,7 @@ async function run() {
     assert(!mtyHtml.includes('hero-destacado.mp4'));
     assert(!mtyHtml.includes('hero-carousel-controls'));
     assert.equal((mtyHtml.match(/class="hero-video/g) || []).length, 1);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/mty/ofertas/${mtyFixture[0].id}/`)).status, 200);
 
     const gdlGuideResponse = await fetch(`http://127.0.0.1:${port}/gdl/guia-ofertas/`);
     const gdlGuideHtml = await gdlGuideResponse.text();
