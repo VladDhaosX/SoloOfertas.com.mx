@@ -100,7 +100,9 @@ async function run() {
     assert(html.includes('poster="/media/gdl/portadas/'));
     assert(html.includes('autoplay muted loop playsinline preload="metadata"'));
     assert(html.includes('<link rel="canonical" href="https://soloofertas.com/gdl/inicio/">'));
-    assert(html.includes(`href="${firstGdlOfferPath}"`));
+    assert(html.includes('class="vacante-modal-trigger"'));
+    assert(!html.includes('class="vacante-detail-link"'));
+    assert(!html.includes(`href="${firstGdlOfferPath}"`));
     assert(html.includes('?preset=small 360w'));
     assert(html.includes('fetchpriority="high"'));
     assert(html.includes('id="offers-structured-data"'));

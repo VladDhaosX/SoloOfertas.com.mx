@@ -457,7 +457,6 @@ function renderVacantes(region) {
     const sourcePath = uploadsPath(region, 'vacantes', filename);
     const thumbUrl = optimizedMediaUrl(region, 'vacantes', v.url, 'thumb');
     const fullUrl = optimizedMediaUrl(region, 'vacantes', v.url, 'full');
-    const detailUrl = v.id ? offerPath(region, v.id) : '';
     const regionName = region === 'gdl' ? 'Guadalajara' : 'Monterrey';
     const contact = whatsappUrl
       ? `<a class="vacante-whatsapp" href="${esc(whatsappUrl)}" target="_blank" rel="noopener" aria-label="Contactanos por WhatsApp" data-tooltip="Contactanos">` +
@@ -467,9 +466,7 @@ function renderVacantes(region) {
     const loadAttrs = index === 0 ? ' fetchpriority="high"' : ' loading="lazy" fetchpriority="low"';
     const image = `<img src="${esc(thumbUrl)}"${responsiveImageAttrs(region, 'vacantes', v.url)} data-full-src="${esc(fullUrl)}" alt="Oferta en ${regionName}"${imageDimensionAttrs(sourcePath)}${loadAttrs} decoding="async"${rot} ` +
       `onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'">`;
-    const visual = detailUrl
-      ? `<a class="vacante-detail-link" href="${esc(detailUrl)}" aria-label="Ver oferta ${esc(v.id)} en ${regionName}">${image}<span class="vacante-detail-label">Ver oferta</span></a>`
-      : image;
+    const visual = `<button type="button" class="vacante-modal-trigger" aria-label="Ampliar oferta ${esc(v.id)} en ${regionName}">${image}</button>`;
     return `<div class="vacante-item">` +
       visual +
       contact +

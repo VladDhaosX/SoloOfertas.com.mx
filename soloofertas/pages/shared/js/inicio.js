@@ -113,9 +113,6 @@
       const MIN_CELLS = type === 'cupones' ? 0 : 8;
       const items = data.map(v => {
         const filename = encodeURIComponent(String(v.url || '').split('/').pop());
-        const detailUrl = type === 'vacantes' && v.id
-          ? `/${region}/ofertas/${encodeURIComponent(String(v.id))}/`
-          : '';
         const image = `
           <img
             src="/media/${region}/${type}/${filename}?preset=thumb"
@@ -127,8 +124,8 @@
             decoding="async"
             onerror="this.onerror=null;this.src='/shared/img/placeholder.svg'"
           >`;
-        const visual = detailUrl
-          ? `<a class="vacante-detail-link" href="${detailUrl}" aria-label="Ver oferta ${escapeAttr(v.id)} en ${regionName}">${image}<span class="vacante-detail-label">Ver oferta</span></a>`
+        const visual = type === 'vacantes'
+          ? `<button type="button" class="vacante-modal-trigger" aria-label="Ampliar oferta ${escapeAttr(v.id)} en ${regionName}">${image}</button>`
           : image;
         return `
         <div class="vacante-item">
@@ -197,8 +194,8 @@
 
     gallery.addEventListener('click', (e) => {
       if (e.target.closest('.vacante-whatsapp')) return;
-      if (e.target.closest('.vacante-detail-link')) return;
-      const img = e.target.closest('.vacante-item img, .cupon-destacado img');
+      const trigger = e.target.closest('.vacante-modal-trigger');
+      const img = trigger ? trigger.querySelector('img') : e.target.closest('.vacante-item img, .cupon-destacado img');
       if (!img) return;
       const item = img.closest('.vacante-item');
       const whatsapp = item ? item.querySelector('.vacante-whatsapp') : null;
