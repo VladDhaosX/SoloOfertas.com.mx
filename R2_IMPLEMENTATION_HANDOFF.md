@@ -58,19 +58,21 @@ y actualiza los JSON.
 | Cuenta | `8736da5067a8e8d28b53a083f09c9002` |
 | Bucket | `soloofertas-media-prod` |
 | Region R2 | `WNAM` |
-| Origen publico | `https://pub-b0e51119f5c14d939ed8e6fa5fb4ed36.r2.dev` |
+| Acceso del Worker | Binding R2 privado `MEDIA_BUCKET` |
+| Transformaciones | Binding Images `IMAGES` |
 | Worker | `soloofertas-images` |
 | URL del Worker | `https://soloofertas-images.deanva08.workers.dev` |
-| Version desplegada | `c91c1545-83cf-4e63-8dd5-171d25f77804` |
+| Version desplegada | `baa22606-0a3d-4101-a18d-aa86117cff3e` |
 
 Estado comprobado al cierre de esta sesion:
 
-- bucket creado y acceso `r2.dev` habilitado;
+- bucket creado y enlazado de forma privada al Worker;
 - CORS aplicado y leido de nuevo mediante Wrangler;
 - Worker desplegado correctamente;
 - Worker real responde HTTP 404 JSON para una clave inexistente;
-- origen R2 responde HTTP 404 para una clave inexistente;
-- bucket vacio: 0 objetos y 0 B;
+- 35 objetos y 136 variantes comprobados mediante el Worker;
+- acceso publico `r2.dev` deshabilitado despues de validar el Worker;
+- origen publico comprobado con HTTP 401 y produccion con readiness HTTP 200;
 - Wrangler autenticado mediante OAuth.
 
 El CORS permite solamente:
@@ -410,8 +412,8 @@ Si falla despues del despliegue R2:
 3. redesplegar;
 4. investigar Worker, credenciales o referencias antes de reactivar R2.
 
-No se debe deshabilitar el origen `r2.dev` mientras el Worker actual dependa de
-el para obtener los originales.
+El Worker no depende de `r2.dev`: lee originales con `MEDIA_BUCKET` y los
+transforma desde bytes mediante `IMAGES`.
 
 ## Consideraciones para un portal publico estatico
 
@@ -443,14 +445,15 @@ credenciales S3.
 - Si la pestana se cierra despues del PUT y antes de publicar la clave, puede
   quedar un objeto huerfano. Los errores conocidos limpian claves; no existe aun
   una tarea periodica de reconciliacion.
-- Los originales son publicos mediante una URL `r2.dev` dificil de adivinar pero
-  no privada. El Worker necesita ese origen en la arquitectura actual.
+- Los originales son privados. La lectura publica se limita a las variantes
+  permitidas y validadas por el Worker.
 - Se guardan `url`, `media.key` y todas las variantes. Es redundante, pero mantiene
   compatibilidad. Un portal futuro podria guardar solo la clave o URL canonica.
 - Las cargas por carpeta son secuenciales. Agregar concurrencia limitada solo si
   el tiempo de carga resulta un problema medido.
 - El ZIP del administrador respalda metadatos, no objetos R2.
-- El bucket sigue vacio hasta ejecutar la migracion o cargar la primera imagen.
+- La cache del Worker depende de `Cache-Control`; al cambiar una imagen se genera
+  una clave UUID nueva, por lo que las variantes previas no se reutilizan.
 
 ## Archivos relevantes
 

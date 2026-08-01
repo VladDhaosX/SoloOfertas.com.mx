@@ -1,10 +1,10 @@
 const PRESETS = Object.freeze({
-  small: Object.freeze({ width: 360, fit: 'scale-down', quality: 64, format: 'auto' }),
-  thumb: Object.freeze({ width: 640, fit: 'scale-down', quality: 68, format: 'auto' }),
-  full: Object.freeze({ width: 1200, fit: 'scale-down', quality: 82, format: 'auto' }),
-  cover: Object.freeze({ width: 720, fit: 'scale-down', quality: 76, format: 'auto' }),
-  hero: Object.freeze({ width: 1280, fit: 'scale-down', quality: 72, format: 'auto' }),
-  admin: Object.freeze({ width: 480, fit: 'scale-down', quality: 70, format: 'auto' }),
+  small: Object.freeze({ width: 360, fit: 'scale-down', quality: 64 }),
+  thumb: Object.freeze({ width: 640, fit: 'scale-down', quality: 68 }),
+  full: Object.freeze({ width: 1200, fit: 'scale-down', quality: 82 }),
+  cover: Object.freeze({ width: 720, fit: 'scale-down', quality: 76 }),
+  hero: Object.freeze({ width: 1280, fit: 'scale-down', quality: 72 }),
+  admin: Object.freeze({ width: 480, fit: 'scale-down', quality: 70 }),
 });
 
 const TYPE_PRESETS = Object.freeze({
@@ -37,11 +37,23 @@ function parseRequestPath(pathname) {
   return { preset, region, type, filename };
 }
 
-function originUrl(baseUrl, media) {
-  const base = String(baseUrl || '').replace(/\/+$/, '');
-  if (!base.startsWith('https://')) return null;
-  const key = [media.region, media.type, media.filename].map(encodeURIComponent).join('/');
-  return `${base}/${key}`;
+function objectKey(media) {
+  return [media.region, media.type, media.filename].join('/');
+}
+
+function responseFormat(acceptHeader, sourceContentType) {
+  const accept = String(acceptHeader || '').toLowerCase();
+  if (accept.includes('image/avif')) return 'image/avif';
+  if (accept.includes('image/webp')) return 'image/webp';
+
+  const source = String(sourceContentType || '').toLowerCase().split(';', 1)[0].trim();
+  return ['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(source)
+    ? source
+    : 'image/jpeg';
+}
+
+function bindingsAvailable(env) {
+  return typeof env?.MEDIA_BUCKET?.get === 'function' && typeof env?.IMAGES?.input === 'function';
 }
 
 export default {
@@ -54,19 +66,32 @@ export default {
 
     const media = parseRequestPath(new URL(request.url).pathname);
     if (!media) return errorResponse(404, 'Variante no encontrada');
-    const source = originUrl(env.R2_PUBLIC_BASE_URL, media);
-    if (!source) return errorResponse(503, 'Origen de imagenes no configurado');
+    if (!bindingsAvailable(env)) return errorResponse(503, 'Bindings de imagenes no configurados');
 
-    const transformed = await fetch(source, {
-      cf: { image: PRESETS[media.preset] },
-      headers: { Accept: request.headers.get('Accept') || 'image/avif,image/webp,image/*' },
-    });
-    if (!transformed.ok) {
-      return errorResponse(transformed.status === 404 ? 404 : 502, 'Imagen no disponible');
+    let original;
+    try {
+      original = await env.MEDIA_BUCKET.get(objectKey(media));
+    } catch (_) {
+      return errorResponse(502, 'No se pudo leer la imagen');
     }
+    if (!original?.body) return errorResponse(404, 'Imagen no disponible');
+
+    const { quality, ...transform } = PRESETS[media.preset];
+    const format = responseFormat(request.headers.get('Accept'), original.httpMetadata?.contentType);
+    let transformed;
+    try {
+      const output = await env.IMAGES.input(original.body)
+        .transform(transform)
+        .output({ format, quality });
+      transformed = output.response();
+    } catch (_) {
+      return errorResponse(502, 'Cloudflare no pudo transformar la imagen');
+    }
+    if (!transformed.ok) return errorResponse(502, 'Imagen no disponible');
 
     const headers = new Headers(transformed.headers);
     headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    headers.set('Vary', 'Accept');
     headers.set('X-Content-Type-Options', 'nosniff');
     headers.set('Access-Control-Allow-Origin', '*');
     headers.delete('Set-Cookie');
@@ -77,4 +102,4 @@ export default {
   },
 };
 
-export { PRESETS, TYPE_PRESETS, parseRequestPath };
+export { PRESETS, TYPE_PRESETS, objectKey, parseRequestPath, responseFormat };
