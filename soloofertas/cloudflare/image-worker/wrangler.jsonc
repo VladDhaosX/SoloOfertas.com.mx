@@ -3,8 +3,17 @@
   "name": "soloofertas-images",
   "main": "src/index.mjs",
   "compatibility_date": "2026-07-31",
-  "vars": {
-    "R2_PUBLIC_BASE_URL": "https://pub-b0e51119f5c14d939ed8e6fa5fb4ed36.r2.dev"
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "soloofertas-media-prod"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "cache": {
+    "enabled": true
   },
   "observability": {
     "enabled": true
