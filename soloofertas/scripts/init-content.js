@@ -7,6 +7,8 @@ const {
   missingContentFiles,
 } = require('../content-paths');
 
+const usesRemoteMedia = String(process.env.MEDIA_STORAGE || '').toLowerCase() === 'r2';
+
 function copyDirectoryIfPresent(source, destination) {
   if (!fs.existsSync(source)) return;
   fs.mkdirSync(destination, { recursive: true });
@@ -24,10 +26,12 @@ for (const region of REGIONS) {
     path.join(PAGES_DIR, region, 'data'),
     path.join(CONTENT_DIR, region, 'data')
   );
-  copyDirectoryIfPresent(
-    path.join(PAGES_DIR, region, 'uploads'),
-    path.join(CONTENT_DIR, region, 'uploads')
-  );
+  if (!usesRemoteMedia) {
+    copyDirectoryIfPresent(
+      path.join(PAGES_DIR, region, 'uploads'),
+      path.join(CONTENT_DIR, region, 'uploads')
+    );
+  }
 }
 
 const missing = missingContentFiles();

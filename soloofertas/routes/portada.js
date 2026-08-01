@@ -1,67 +1,35 @@
 const express = require('express');
-const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-const { randomUUID } = require('crypto');
 const requireAuth = require('../middleware/auth');
-const { dataPath, uploadsPath } = require('../content-paths');
-const { readJson, writeJsonAtomic, archiveFile } = require('../content-store');
+const { dataPath } = require('../content-paths');
+const { readJson, writeJsonAtomic } = require('../content-store');
+const { MediaStorageError, createR2Storage } = require('../services/r2-storage');
 
-module.exports = function (region) {
+module.exports = function (region, options = {}) {
   const router = express.Router();
+  const storage = options.storage || createR2Storage();
+  const jsonPath = dataPath(region, 'portada.json');
 
-  const uploadDir = uploadsPath(region, 'portadas');
-
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      fs.mkdirSync(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      cb(null, `${randomUUID()}.jpg`);
-    },
-  });
-
-  const upload = multer({
-    storage,
-    fileFilter: (req, file, cb) => {
-      if (!file.mimetype.startsWith('image/')) {
-        return cb(new Error('Solo se permiten imágenes'));
-      }
-      cb(null, true);
-    },
-    limits: { fileSize: 10 * 1024 * 1024 },
-  });
-
-  router.post('/portada', requireAuth, upload.single('imagen'), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No se recibió imagen' });
-    }
-
-    const ts = path.basename(req.file.filename, '.jpg');
-    const url = `/${region}/uploads/portadas/${req.file.filename}`;
-    const jsonPath = dataPath(region, 'portada.json');
-    let previous = null;
-
+  router.post('/portada', requireAuth, async (req, res) => {
+    const key = req.body?.key;
     try {
-      previous = readJson(jsonPath);
-      writeJsonAtomic(jsonPath, { url, version: ts });
-    } catch (err) {
-      console.error('portada write error:', err);
-      try { archiveFile(req.file.path); } catch (archiveErr) {
-        console.error('portada rollback archive error:', archiveErr);
-      }
-      return res.status(500).json({ error: 'Error interno' });
-    }
+      const media = await storage.completeUpload(key, region, 'portadas');
+      const previous = readJson(jsonPath);
+      const url = storage.publicUrl(media, 'portadas');
+      writeJsonAtomic(jsonPath, { url, version: path.parse(media.key).name, media });
 
-    if (previous && previous.url && previous.url !== url) {
-      try {
-        archiveFile(path.join(uploadDir, path.basename(previous.url)));
-      } catch (err) {
-        console.error('portada previous file archive error:', err);
+      if (previous?.url && previous.url !== url) {
+        try { await storage.deleteItem(previous); } catch (err) {
+          console.error('portada previous R2 cleanup error:', err);
+        }
       }
+      res.json({ url, media });
+    } catch (err) {
+      if (key) await storage.deleteKey(key).catch(() => {});
+      if (err instanceof MediaStorageError) return res.status(err.statusCode).json({ error: err.message });
+      console.error('portada write error:', err);
+      res.status(500).json({ error: 'Error interno' });
     }
-    res.json({ url });
   });
 
   return router;

@@ -1,106 +1,78 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const { randomUUID } = require('crypto');
 const requireAuth = require('../middleware/auth');
-const { dataPath, uploadsPath } = require('../content-paths');
-const { readJsonArray, writeJsonAtomic, archiveFile } = require('../content-store');
+const { dataPath } = require('../content-paths');
+const { readJsonArray, writeJsonAtomic } = require('../content-store');
+const { MediaStorageError, createR2Storage } = require('../services/r2-storage');
 
-module.exports = function (region) {
+module.exports = function (region, options = {}) {
   const router = express.Router();
-
-  const uploadDir = uploadsPath(region, 'vacantes');
   const jsonPath = dataPath(region, 'vacantes.json');
+  const storage = options.storage || createR2Storage();
 
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      fs.mkdirSync(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      cb(null, `${randomUUID()}.jpg`);
-    },
-  });
+  const readVacantes = () => readJsonArray(jsonPath);
+  const writeVacantes = data => writeJsonAtomic(jsonPath, data);
 
-  const upload = multer({
-    storage,
-    fileFilter: (req, file, cb) => {
-      if (!file.mimetype.startsWith('image/')) {
-        return cb(new Error('Solo se permiten imágenes'));
-      }
-      cb(null, true);
-    },
-    limits: { fileSize: 10 * 1024 * 1024 },
-  });
-
-  function readVacantes() {
-    return readJsonArray(jsonPath);
+  function respondError(res, err, context) {
+    if (err instanceof MediaStorageError) return res.status(err.statusCode).json({ error: err.message });
+    console.error(`${context} error:`, err);
+    return res.status(500).json({ error: 'Error interno' });
   }
 
-  function writeVacantes(data) {
-    writeJsonAtomic(jsonPath, data);
-  }
-
-  function archiveUploads(files) {
-    for (const file of files || []) {
-      try { archiveFile(file.path); } catch (err) {
-        console.error('vacantes uploaded file archive error:', err);
-      }
+  async function deletePublishedItem(item) {
+    try { await storage.deleteItem(item); } catch (err) {
+      console.error('vacantes R2 cleanup error:', err);
     }
   }
 
-  function archivePublishedItem(item) {
-    const filename = path.basename(item.url);
-    try { archiveFile(path.join(uploadDir, filename)); } catch (err) {
-      console.error('vacantes published file archive error:', err);
-    }
-  }
-
-  router.post('/vacantes/replace-all', requireAuth, upload.array('imagenes', 200), (req, res) => {
-    if (!req.files || !req.files.length) {
-      return res.status(400).json({ error: 'No se recibieron imágenes' });
+  router.post('/vacantes/replace-all', requireAuth, async (req, res) => {
+    const keys = req.body?.keys;
+    if (!Array.isArray(keys) || !keys.length || keys.length > 200 || new Set(keys).size !== keys.length) {
+      return res.status(400).json({ error: 'Se requieren entre 1 y 200 imagenes distintas' });
     }
 
     try {
+      const stored = [];
+      for (const key of keys) stored.push(await storage.completeUpload(key, region, 'vacantes'));
+
       const existing = readVacantes();
-      // Build new list from uploaded files (already sorted client-side).
-      const now = new Date().toISOString().slice(0, 10);
-      const lista = req.files.map(file => {
-        const id = randomUUID();
-        const url = `/${region}/uploads/vacantes/${file.filename}`;
-        return { id, url, fecha: now, rotation: 0, telefono: '' };
-      });
-
-      writeVacantes(lista);
-      existing.forEach(archivePublishedItem);
-      res.json({ total: lista.length });
+      const today = new Date().toISOString().slice(0, 10);
+      const items = stored.map(media => ({
+        id: randomUUID(),
+        url: storage.publicUrl(media, 'vacantes'),
+        fecha: today,
+        rotation: 0,
+        telefono: '',
+        media,
+      }));
+      writeVacantes(items);
+      for (const item of existing) await deletePublishedItem(item);
+      res.json({ ok: true, total: items.length });
     } catch (err) {
-      console.error('vacantes replace-all error:', err);
-      archiveUploads(req.files);
-      res.status(500).json({ error: 'Error interno' });
+      await Promise.allSettled(keys.map(key => storage.deleteKey(key)));
+      respondError(res, err, 'vacantes replace-all');
     }
   });
 
-  router.post('/vacantes', requireAuth, upload.single('imagen'), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No se recibió imagen' });
-    }
-
-    const id = randomUUID();
-    const url = `/${region}/uploads/vacantes/${req.file.filename}`;
-    const now = new Date().toISOString().slice(0, 10);
-
+  router.post('/vacantes', requireAuth, async (req, res) => {
+    const key = req.body?.key;
     try {
-      const lista = readVacantes();
-      const item = { id, url, fecha: now, rotation: 0, telefono: '' };
-      lista.unshift(item);
-      writeVacantes(lista);
-      res.json({ id, url });
+      const media = await storage.completeUpload(key, region, 'vacantes');
+      const item = {
+        id: randomUUID(),
+        url: storage.publicUrl(media, 'vacantes'),
+        fecha: new Date().toISOString().slice(0, 10),
+        rotation: 0,
+        telefono: '',
+        media,
+      };
+      const items = readVacantes();
+      items.unshift(item);
+      writeVacantes(items);
+      res.json(item);
     } catch (err) {
-      console.error('vacantes write error:', err);
-      archiveUploads([req.file]);
-      res.status(500).json({ error: 'Error interno' });
+      if (key) await storage.deleteKey(key).catch(() => {});
+      respondError(res, err, 'vacantes write');
     }
   });
 
@@ -108,69 +80,56 @@ module.exports = function (region) {
     const { ids } = req.body;
     if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids debe ser array' });
     try {
-      const lista = readVacantes();
-      const map = Object.fromEntries(lista.map(v => [v.id, v]));
-      const reordered = ids.map(id => map[id]).filter(Boolean);
-      const missing = lista.filter(v => !ids.includes(v.id));
-      writeVacantes([...reordered, ...missing]);
+      const items = readVacantes();
+      const map = Object.fromEntries(items.map(item => [item.id, item]));
+      const included = new Set(ids);
+      writeVacantes([...ids.map(id => map[id]).filter(Boolean), ...items.filter(item => !included.has(item.id))]);
       res.json({ ok: true });
     } catch (err) {
-      console.error('vacantes reorder error:', err);
-      res.status(500).json({ error: 'Error interno' });
+      respondError(res, err, 'vacantes reorder');
     }
   });
 
   router.put('/vacantes/:id/rotate', requireAuth, (req, res) => {
     try {
-      const lista = readVacantes();
-      const item = lista.find(vacante => vacante.id === req.params.id);
+      const items = readVacantes();
+      const item = items.find(vacante => vacante.id === req.params.id);
       if (!item) return res.status(404).json({ error: 'Oferta no encontrada' });
       item.rotation = ((Number(item.rotation) || 0) + 90) % 360;
-      writeVacantes(lista);
+      writeVacantes(items);
       res.json({ ok: true, rotation: item.rotation });
     } catch (err) {
-      console.error('vacantes rotate error:', err);
-      res.status(500).json({ error: 'Error interno' });
+      respondError(res, err, 'vacantes rotate');
     }
   });
 
   router.put('/vacantes/:id/telefono', requireAuth, (req, res) => {
-    const { id } = req.params;
     const telefono = String(req.body.telefono || '').trim();
     if (telefono.length > 30) {
       return res.status(400).json({ error: 'El numero no debe exceder 30 caracteres' });
     }
-
     try {
-      const lista = readVacantes();
-      const item = lista.find(v => v.id === id);
+      const items = readVacantes();
+      const item = items.find(vacante => vacante.id === req.params.id);
       if (!item) return res.status(404).json({ error: 'Oferta no encontrada' });
       item.telefono = telefono;
-      writeVacantes(lista);
+      writeVacantes(items);
       res.json({ ok: true, telefono });
     } catch (err) {
-      console.error('vacantes telefono error:', err);
-      res.status(500).json({ error: 'Error interno' });
+      respondError(res, err, 'vacantes telefono');
     }
   });
 
-  router.delete('/vacantes/:id', requireAuth, (req, res) => {
-    const { id } = req.params;
+  router.delete('/vacantes/:id', requireAuth, async (req, res) => {
     try {
-      const lista = readVacantes();
-      const item = lista.find(v => v.id === id);
-      if (!item) {
-        return res.status(404).json({ error: 'Oferta no encontrada' });
-      }
-
-      const filtered = lista.filter(v => v.id !== id);
-      writeVacantes(filtered);
-      archivePublishedItem(item);
-
+      const items = readVacantes();
+      const item = items.find(vacante => vacante.id === req.params.id);
+      if (!item) return res.status(404).json({ error: 'Oferta no encontrada' });
+      writeVacantes(items.filter(vacante => vacante.id !== req.params.id));
+      await deletePublishedItem(item);
       res.json({ ok: true });
     } catch (err) {
-      console.error('vacantes delete error:', err);
-      res.status(500).json({ error: 'Error interno' });
+      respondError(res, err, 'vacantes delete');
     }
   });
 

@@ -23,6 +23,18 @@
     `;
   }
 
+  function mediaUrl(item, region, type, preset) {
+    const remote = item?.media?.urls?.[preset];
+    for (const candidate of [remote, item?.url]) {
+      try {
+        const parsed = new URL(String(candidate || ''));
+        if (parsed.protocol === 'https:') return parsed.href;
+      } catch (_) {}
+    }
+    const filename = encodeURIComponent(String(item?.url || '').split('/').pop());
+    return filename ? `/${region}/uploads/${type}/${filename}` : '/shared/img/placeholder.svg';
+  }
+
   function respectDataPreferences() {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const saveData = Boolean(navigator.connection && navigator.connection.saveData);
@@ -112,13 +124,15 @@
 
       const MIN_CELLS = type === 'cupones' ? 0 : 8;
       const items = data.map(v => {
-        const filename = encodeURIComponent(String(v.url || '').split('/').pop());
+        const smallUrl = mediaUrl(v, region, type, 'small');
+        const thumbUrl = mediaUrl(v, region, type, 'thumb');
+        const fullUrl = mediaUrl(v, region, type, 'full');
         const image = `
           <img
-            src="/media/${region}/${type}/${filename}?preset=thumb"
-            srcset="/media/${region}/${type}/${filename}?preset=small 360w, /media/${region}/${type}/${filename}?preset=thumb 640w"
+            src="${escapeAttr(thumbUrl)}"
+            srcset="${escapeAttr(smallUrl)} 360w, ${escapeAttr(thumbUrl)} 640w"
             sizes="(max-width: 600px) calc(100vw - 2rem), (max-width: 900px) calc(50vw - 2rem), 390px"
-            data-full-src="/media/${region}/${type}/${filename}?preset=full"
+            data-full-src="${escapeAttr(fullUrl)}"
             alt="${escapeAttr(type === 'cupones' ? `Cupón en ${regionName}` : `Oferta en ${regionName}`)}"
             loading="lazy"
             decoding="async"
@@ -173,7 +187,7 @@
       modal.classList.toggle('is-cupones', isCoupon);
       if (isCoupon) {
         const url = new URL(src, window.location.href);
-        modalDownload.href = url.pathname.replace('/media/gdl/cupones/', '/gdl/uploads/cupones/');
+        modalDownload.href = url.href;
       }
       else modalDownload.removeAttribute('href');
       if (whatsappUrl) {
